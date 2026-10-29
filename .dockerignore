@@ -17,6 +17,7 @@ coverage
 
 # tooling and docs
 .git
+.github
 .agents
 .vercel
 *.tsbuildinfo
