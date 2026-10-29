@@ -20,6 +20,24 @@ type AuthErrorResponse = {
   message?: string
 }
 
+export async function verifyRegistrationCode(code: string) {
+  const response = await fetch("/api/registration-code", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code }),
+  })
+
+  if (!response.ok) {
+    const result = (await response
+      .json()
+      .catch(() => null)) as AuthErrorResponse | null
+
+    throw new Error(result?.message ?? "Invalid registration code")
+  }
+}
+
 export async function signUpWithRegistrationCode(
   input: SignUpWithRegistrationCodeInput
 ) {

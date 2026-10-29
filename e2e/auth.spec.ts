@@ -37,23 +37,20 @@ async function createUser(request: APIRequestContext, email: string) {
   expect(response.ok()).toBeTruthy()
 }
 
-async function fillSignUpForm(
-  page: Page,
-  email: string,
-  loginCode: string,
-  profile: { association?: string; title?: string } = {}
-) {
+async function startSignUp(page: Page, loginCode: string) {
   await page.goto("/sign-up")
-  await page.getByLabel("Name").fill("Test User")
+  await page.getByLabel("Registration code").fill(loginCode)
+  await page.getByRole("button", { name: "Continue" }).click()
+}
+
+async function completeAccountStep(page: Page, email: string) {
+  await page.getByLabel("First name").fill("Test")
+  await page.getByLabel("Last name").fill("User")
   await page.getByLabel("Email").fill(email)
   await page.getByLabel("Password").fill(password)
-  if (profile.association) {
-    await page.getByLabel("Association").fill(profile.association)
-  }
-  if (profile.title) {
-    await page.getByLabel("Title").fill(profile.title)
-  }
-  await page.getByLabel("Registration code").fill(loginCode)
+  await page.getByRole("button", { name: "Continue" }).click()
+
+  await expect(page.getByText("Step 3 of 3")).toBeVisible()
 }
 
 async function currentUser(page: Page) {
@@ -73,28 +70,23 @@ async function signIn(page: Page, email: string) {
 }
 
 test("rejects sign-up with a wrong registration code", async ({ page }) => {
-  const email = uniqueEmail()
-
-  await fillSignUpForm(page, email, "not-the-code")
-  await page.getByRole("button", { name: "Create account" }).click()
+  await startSignUp(page, "not-the-code")
 
   await expect(
     page.getByRole("alert").filter({ hasText: "Invalid registration code" })
   ).toBeVisible()
   await expect(page).toHaveURL(/\/sign-up$/)
+  await expect(page.getByText("Step 1 of 3")).toBeVisible()
   expect(await currentUser(page)).toBeNull()
 })
 
-test("rejects sign-up without a registration code", async ({ page }) => {
-  const email = uniqueEmail()
+test("does not continue without a registration code", async ({ page }) => {
+  await page.goto("/sign-up")
+  await page.getByRole("button", { name: "Continue" }).click()
 
-  await fillSignUpForm(page, email, "")
-  await page.getByRole("button", { name: "Create account" }).click()
-
-  await expect(
-    page.getByRole("alert").filter({ hasText: "Invalid registration code" })
-  ).toBeVisible()
   await expect(page).toHaveURL(/\/sign-up$/)
+  await expect(page.getByText("Step 1 of 3")).toBeVisible()
+  await expect(page.getByLabel("First name")).toHaveCount(0)
   expect(await currentUser(page)).toBeNull()
 })
 
@@ -109,15 +101,61 @@ test("registration endpoint rejects a missing code", async ({ request }) => {
   })
 })
 
+test("verification endpoint accepts the correct code", async ({ request }) => {
+  const response = await request.post("/api/registration-code", {
+    data: { code: registrationCode },
+    headers: { "x-forwarded-for": "203.0.113.10" },
+  })
+
+  expect(response.status()).toBe(200)
+  expect(await response.json()).toEqual({ ok: true })
+})
+
+test("verification endpoint rejects a wrong code", async ({ request }) => {
+  const response = await request.post("/api/registration-code", {
+    data: { code: "definitely-not-the-code" },
+    headers: { "x-forwarded-for": "203.0.113.11" },
+  })
+
+  expect(response.status()).toBe(400)
+  expect(await response.json()).toEqual({
+    message: "Invalid registration code",
+  })
+})
+
+test("verification endpoint rate limits repeated wrong codes", async ({
+  request,
+}) => {
+  const headers = { "x-forwarded-for": "203.0.113.12" }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await request.post("/api/registration-code", {
+      data: { code: "wrong" },
+      headers,
+    })
+
+    expect(response.status()).toBe(400)
+  }
+
+  const blocked = await request.post("/api/registration-code", {
+    data: { code: "wrong" },
+    headers,
+  })
+
+  expect(blocked.status()).toBe(429)
+  expect(blocked.headers()["retry-after"]).toBeTruthy()
+})
+
 test("registers with the correct code and stores profile fields", async ({
   page,
 }) => {
   const email = uniqueEmail()
 
-  await fillSignUpForm(page, email, registrationCode, {
-    association: "Chair of Software Engineering",
-    title: "M.Sc.",
-  })
+  await startSignUp(page, registrationCode)
+  await expect(page.getByLabel("First name")).toBeVisible()
+  await completeAccountStep(page, email)
+  await page.getByLabel("Association").fill("Chair of Software Engineering")
+  await page.getByLabel("Title").fill("M.Sc.")
   await page.getByRole("button", { name: "Create account" }).click()
 
   await expect(page).toHaveURL("/dashboard")
@@ -125,7 +163,40 @@ test("registers with the correct code and stores profile fields", async ({
     page.getByRole("heading", { name: /Welcome back/ })
   ).toBeVisible()
   expect(await currentUser(page)).toMatchObject({
+    name: "Test User",
     email,
+    association: "Chair of Software Engineering",
+    title: "M.Sc.",
+  })
+})
+
+test("keeps typed profile values when navigating back to change the email", async ({
+  page,
+}) => {
+  const email = uniqueEmail()
+  const updatedEmail = uniqueEmail()
+
+  await startSignUp(page, registrationCode)
+  await expect(page.getByLabel("First name")).toBeVisible()
+  await completeAccountStep(page, email)
+
+  await page.getByLabel("Association").fill("Chair of Software Engineering")
+  await page.getByLabel("Title").fill("M.Sc.")
+
+  await page.getByRole("button", { name: "Back" }).click()
+  await page.getByLabel("Email").fill(updatedEmail)
+  await page.getByRole("button", { name: "Continue" }).click()
+
+  await expect(page.getByLabel("Association")).toHaveValue(
+    "Chair of Software Engineering"
+  )
+  await expect(page.getByLabel("Title")).toHaveValue("M.Sc.")
+
+  await page.getByRole("button", { name: "Create account" }).click()
+
+  await expect(page).toHaveURL("/dashboard")
+  expect(await currentUser(page)).toMatchObject({
+    email: updatedEmail,
     association: "Chair of Software Engineering",
     title: "M.Sc.",
   })

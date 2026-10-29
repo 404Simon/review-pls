@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createAuthMiddleware, APIError } from "better-auth/api"
 import { db } from "@/db"
+import { isValidRegistrationCode } from "@/lib/registration-code"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -31,14 +32,7 @@ export const auth = betterAuth({
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path !== "/sign-up/email") return
 
-      const expectedCode = process.env.REGISTRATION_CODE
-      const submittedCode = ctx.body?.loginCode
-
-      if (
-        !expectedCode ||
-        typeof submittedCode !== "string" ||
-        submittedCode !== expectedCode
-      ) {
+      if (!isValidRegistrationCode(ctx.body?.loginCode)) {
         throw new APIError("BAD_REQUEST", {
           message: "Invalid registration code",
         })
