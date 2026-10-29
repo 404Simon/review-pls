@@ -63,6 +63,15 @@ async function currentUser(page: Page) {
   return session?.user ?? null
 }
 
+async function signIn(page: Page, email: string) {
+  await page.goto("/sign-in")
+  await page.getByLabel("Email").fill(email)
+  await page.getByLabel("Password").fill(password)
+  await page.getByRole("button", { name: "Sign in" }).click()
+
+  await expect(page).toHaveURL("/dashboard")
+}
+
 test("rejects sign-up with a wrong registration code", async ({ page }) => {
   const email = uniqueEmail()
 
@@ -111,7 +120,10 @@ test("registers with the correct code and stores profile fields", async ({
   })
   await page.getByRole("button", { name: "Create account" }).click()
 
-  await expect(page).toHaveURL("/")
+  await expect(page).toHaveURL("/dashboard")
+  await expect(
+    page.getByRole("heading", { name: /Welcome back/ })
+  ).toBeVisible()
   expect(await currentUser(page)).toMatchObject({
     email,
     association: "Chair of Software Engineering",
@@ -123,13 +135,8 @@ test("signs in with valid credentials", async ({ page, request }) => {
   const email = uniqueEmail()
 
   await createUser(request, email)
+  await signIn(page, email)
 
-  await page.goto("/sign-in")
-  await page.getByLabel("Email").fill(email)
-  await page.getByLabel("Password").fill(password)
-  await page.getByRole("button", { name: "Sign in" }).click()
-
-  await expect(page).toHaveURL("/")
   expect(await currentUser(page)).toMatchObject({
     email,
     association: "none",
@@ -151,5 +158,43 @@ test("rejects sign-in with a wrong password", async ({ page, request }) => {
     page.getByRole("alert").filter({ hasText: "Sign in failed" })
   ).toBeVisible()
   await expect(page).toHaveURL(/\/sign-in$/)
+  expect(await currentUser(page)).toBeNull()
+})
+
+test("sends signed-out visitors to the sign-in page", async ({ page }) => {
+  await page.goto("/")
+  await expect(page).toHaveURL("/sign-in")
+})
+
+test("protects the dashboard from signed-out visitors", async ({ page }) => {
+  await page.goto("/dashboard")
+  await expect(page).toHaveURL("/sign-in")
+})
+
+test("sends signed-in users to the dashboard", async ({ page, request }) => {
+  const email = uniqueEmail()
+
+  await createUser(request, email)
+  await signIn(page, email)
+
+  await page.goto("/")
+  await expect(page).toHaveURL("/dashboard")
+
+  await page.goto("/sign-in")
+  await expect(page).toHaveURL("/dashboard")
+
+  await page.goto("/sign-up")
+  await expect(page).toHaveURL("/dashboard")
+})
+
+test("signs out and returns to the sign-in page", async ({ page, request }) => {
+  const email = uniqueEmail()
+
+  await createUser(request, email)
+  await signIn(page, email)
+
+  await page.getByRole("button", { name: "Sign out" }).click()
+
+  await expect(page).toHaveURL("/sign-in")
   expect(await currentUser(page)).toBeNull()
 })
