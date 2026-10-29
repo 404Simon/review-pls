@@ -1,21 +1,23 @@
-# Next.js template
+# review-pls
 
-This is a Next.js template with shadcn/ui.
+## Docker
 
-## Adding components
+The image is built from `Dockerfile` (Next.js standalone output) and is intended to run behind a reverse proxy that terminates TLS.
 
-To add components to your app, run the following command:
+1. Create the bind-mounted database directory. The container runs as uid/gid `1000` (`node`), so the host directory must be writable by that user:
 
-```bash
-npx shadcn@latest add button
-```
+   ```bash
+   mkdir -p data
+   sudo chown -R 1000:1000 data
+   ```
 
-This will place the ui components in the `components` directory.
+2. Set the environment variables in `docker-compose.yml`
+3. Start it:
+   ```bash
+   docker compose up -d --build
+   docker compose logs -f
+   ```
 
-## Using components
+On every start the container runs pending Drizzle migrations before accepting requests (see `src/instrumentation.ts`), so upgrades just need a rebuild and restart. The SQLite database lives on the `./data` bind mount, including its `-wal`/`-shm` files, so use a local filesystem (not NFS/SMB).
 
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+The app listens on port `3000` inside the container. `docker-compose.yml` publishes it on `127.0.0.1:3000` only; point the reverse proxy at that address and forward the `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto` headers.

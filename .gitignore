@@ -33,6 +33,7 @@ pnpm-debug.log*
 
 # local database
 local.db*
+/data/
 
 # playwright
 /.playwright/

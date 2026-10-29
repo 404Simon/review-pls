@@ -1,0 +1,25 @@
+# dependencies and build output
+node_modules
+.next
+.next-e2e
+.playwright
+
+# local databases and secrets (never bake these into the image)
+local.db*
+.env*
+data
+
+# tests and reports
+test-results
+playwright-report
+blob-report
+coverage
+
+# tooling and docs
+.git
+.agents
+.vercel
+*.tsbuildinfo
+README.md
+CLAUDE.md
+AGENTS.md
