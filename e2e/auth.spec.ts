@@ -264,8 +264,41 @@ test("signs out and returns to the sign-in page", async ({ page, request }) => {
   await createUser(request, email)
   await signIn(page, email)
 
-  await page.getByRole("button", { name: "Sign out" }).click()
+  await page.getByRole("button", { name: "Account menu" }).click()
+  await page.getByRole("menuitem", { name: "Sign out" }).click()
 
   await expect(page).toHaveURL("/sign-in")
   expect(await currentUser(page)).toBeNull()
+})
+
+test("edits profile details on the dedicated profile page", async ({
+  page,
+  request,
+}) => {
+  const email = uniqueEmail()
+
+  await createUser(request, email)
+  await signIn(page, email)
+
+  await page.goto("/profile")
+  await expect(
+    page.getByRole("heading", { name: "Your profile" })
+  ).toBeVisible()
+
+  await page.getByLabel("Name", { exact: true }).fill("Updated Reviewer")
+  await page.getByLabel("Association").fill("Chair of Software Engineering")
+  await page.getByLabel("Title").fill("Dr.")
+  await page.getByRole("button", { name: "Save profile" }).click()
+
+  await expect(page.getByText("Profile updated")).toBeVisible()
+  expect(await currentUser(page)).toMatchObject({
+    name: "Updated Reviewer",
+    association: "Chair of Software Engineering",
+    title: "Dr.",
+  })
+
+  // The shell reflects the new name without a manual reload.
+  await expect(
+    page.getByRole("button", { name: "Account menu" })
+  ).toContainText("Updated Reviewer")
 })

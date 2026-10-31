@@ -1,3 +1,4 @@
+import { SearchCheck } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -5,13 +6,14 @@ import { BatchNav } from "@/components/review/batch-nav"
 import { BatchSelect } from "@/components/review/batch-select"
 import { KeyboardLayer } from "@/components/review/keyboard-layer"
 import { ThemeToggle } from "@/components/review/theme-toggle"
+import { UserMenu } from "@/components/review/user-menu"
 import { WorkspaceNav } from "@/components/review/workspace-nav"
-import { SignOutButton } from "@/components/sign-out-button"
 import { batchNavItems } from "@/lib/review/batch-nav"
 import { listBatches, ReviewDataError } from "@/lib/review/load"
 
 export interface AppShellUser {
   name: string
+  email: string
 }
 
 export interface AppShellProps {
@@ -63,29 +65,39 @@ export async function AppShell({
         Skip to content
       </a>
       <KeyboardLayer />
-      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/dashboard" className="flex min-w-0 flex-col">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              review-pls
+      <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:px-6">
+          <Link
+            href="/dashboard"
+            className="group flex min-w-0 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform group-hover:-rotate-3">
+              <SearchCheck className="size-4" />
             </span>
-            <span className="truncate text-sm font-medium">
-              Review workspace
+            <span className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-semibold tracking-tight">
+                review-pls
+              </span>
+              <span className="truncate text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
+                Review workspace
+              </span>
             </span>
           </Link>
 
-          <span className="hidden h-6 w-px bg-border sm:block" aria-hidden />
+          <span className="hidden h-7 w-px bg-border md:block" aria-hidden />
 
-          <Suspense fallback={<WorkspaceNav items={fallbackNav} />}>
-            <BatchNav
-              activeBatchId={activeBatchId}
-              batchIds={batchIds}
-              defaultBatchId={defaultBatchId}
-              isAdmin={isAdmin}
-            />
-          </Suspense>
+          <div className="order-3 w-full min-w-0 md:order-none md:w-auto">
+            <Suspense fallback={<WorkspaceNav items={fallbackNav} />}>
+              <BatchNav
+                activeBatchId={activeBatchId}
+                batchIds={batchIds}
+                defaultBatchId={defaultBatchId}
+                isAdmin={isAdmin}
+              />
+            </Suspense>
+          </div>
 
-          <div className="ml-auto flex min-w-0 items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-1.5">
             <Suspense fallback={null}>
               <BatchSelect
                 batches={batches}
@@ -94,7 +106,7 @@ export async function AppShell({
               />
             </Suspense>
             <ThemeToggle />
-            <SignOutButton />
+            <UserMenu name={user.name} email={user.email} isAdmin={isAdmin} />
           </div>
         </div>
       </header>
@@ -108,12 +120,14 @@ export async function AppShell({
       </main>
 
       <footer className="border-t bg-background/60">
-        <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs text-muted-foreground sm:px-6">
-          <span>
-            {user.name} · human review of AuditOwl and review-agent overlap
-          </span>
-          <Link href="/guide" className="hover:text-foreground">
-            Protocol guide
+        <div className="mx-auto flex w-full max-w-[100rem] items-center justify-center px-4 py-4 sm:px-6">
+          <Link
+            href="https://github.com/404Simon/review-pls"
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Thanks for your help &lt;3
           </Link>
         </div>
       </footer>

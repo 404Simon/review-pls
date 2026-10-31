@@ -22,7 +22,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <AppShell user={{ name: session.user.name }} activeBatchId={null} isAdmin>
+    <AppShell
+      user={{ name: session.user.name, email: session.user.email }}
+      activeBatchId={null}
+      isAdmin
+    >
       {children}
     </AppShell>
   )

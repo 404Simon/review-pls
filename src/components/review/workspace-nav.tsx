@@ -26,17 +26,20 @@ export function WorkspaceNav({
   const pathname = usePathname()
 
   return (
-    <nav aria-label="Workspace" className="flex items-center gap-1">
+    <nav
+      aria-label="Workspace"
+      className="flex w-full items-center gap-1 overflow-x-auto rounded-lg bg-muted/60 p-1 md:w-fit"
+    >
       {items.map((item) => {
         const active = isActive(pathname, item.activePrefixes)
         const className = cn(
-          "rounded-md px-2 py-1 text-sm transition-colors",
+          "shrink-0 rounded-md px-2.5 py-1 text-sm whitespace-nowrap transition-colors",
           active
-            ? "bg-muted font-medium text-foreground"
+            ? "bg-background font-medium text-foreground shadow-sm ring-1 ring-border/60"
             : "text-muted-foreground",
           item.disabled
             ? "cursor-not-allowed opacity-50"
-            : "hover:bg-muted hover:text-foreground"
+            : "hover:bg-background/60 hover:text-foreground"
         )
         if (item.disabled) {
           return (

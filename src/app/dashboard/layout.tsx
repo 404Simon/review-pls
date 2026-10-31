@@ -20,7 +20,7 @@ export default async function DashboardLayout({
 
   return (
     <AppShell
-      user={{ name: session.user.name }}
+      user={{ name: session.user.name, email: session.user.email }}
       activeBatchId={null}
       isAdmin={role === "admin"}
     >

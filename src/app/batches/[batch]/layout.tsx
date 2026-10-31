@@ -23,7 +23,7 @@ export default async function BatchLayout({
 
   return (
     <AppShell
-      user={{ name: session.user.name }}
+      user={{ name: session.user.name, email: session.user.email }}
       activeBatchId={batch}
       isAdmin={role === "admin"}
     >

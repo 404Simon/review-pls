@@ -42,11 +42,6 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-function formatDetail(value: string | null | undefined) {
-  const trimmed = value?.trim()
-  return trimmed && trimmed !== "none" ? trimmed : "Not set"
-}
-
 function matchingItems(
   items: readonly ReviewItem[],
   states: Awaited<ReturnType<typeof loadBatchReviewView>>["states"],
@@ -97,13 +92,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   const activeBatch = unknownRequestedBatch
     ? null
     : (requested ?? selectable[0] ?? batches[0] ?? null)
-
-  const details = [
-    { label: "Name", value: user.name },
-    { label: "Email", value: user.email },
-    { label: "Association", value: user.association },
-    { label: "Title", value: user.title },
-  ]
 
   return (
     <>
@@ -163,22 +151,6 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           params={params}
         />
       )}
-
-      <details className="group rounded-xl border bg-card px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium">
-          Profile
-        </summary>
-        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-          {details.map((detail) => (
-            <div key={detail.label} className="flex flex-col gap-1">
-              <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                {detail.label}
-              </dt>
-              <dd className="truncate text-sm">{formatDetail(detail.value)}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
     </>
   )
 }
