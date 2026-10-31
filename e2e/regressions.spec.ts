@@ -483,8 +483,15 @@ test("navigation controls are links, not buttons", async ({
   ).toHaveCount(0)
 
   await page.goto("/batches/review-fixture/papers/1001")
-  await expect(page.getByRole("link", { name: /^Open$/ }).first()).toBeVisible()
-  await expect(page.getByRole("button", { name: /^Open$/ })).toHaveCount(0)
+  const itemLink = page.getByRole("link", {
+    name: "Test statistics leak into augmentation search",
+  })
+  await expect(itemLink).toBeVisible()
+  await expect(
+    page.getByRole("button", {
+      name: "Test statistics leak into augmentation search",
+    })
+  ).toHaveCount(0)
 
   await page.goto(item("review-fixture", "cluster:1001:M01"))
   await expect(page.getByRole("link", { name: "Back to queue" })).toBeVisible()

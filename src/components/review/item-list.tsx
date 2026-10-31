@@ -80,17 +80,11 @@ export function ItemList({
 
     return (
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>
-            Showing {visible.length} of {tabItemsFull.length} item
-            {tabItemsFull.length === 1 ? "" : "s"} in this tab
-          </span>
-          {activeFilters ? (
-            <span className="text-xs">
-              Use “Reset filters” to clear the search.
-            </span>
-          ) : null}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {visible.length === tabItemsFull.length
+            ? `${visible.length} item${visible.length === 1 ? "" : "s"}`
+            : `${visible.length} of ${tabItemsFull.length} items`}
+        </p>
 
         {visible.length === 0 ? (
           <EmptyState
@@ -102,8 +96,8 @@ export function ItemList({
             }
             description={
               activeFilters
-                ? "Use “Reset filters” above to see the full paper. The counts on the tabs always cover the whole paper."
-                : "This paper has no items of this type. Try another tab or open the batch queue."
+                ? "Reset the filters above to see every item."
+                : "This paper has no items of this type. Try another tab."
             }
           />
         ) : (
@@ -141,7 +135,7 @@ export function ItemList({
       >
         <TabsList
           variant="line"
-          className="w-full justify-start overflow-x-auto"
+          className="max-w-full justify-start overflow-x-auto"
         >
           {ITEM_TABS.map((entry) => {
             const count =

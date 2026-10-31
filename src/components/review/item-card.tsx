@@ -1,10 +1,8 @@
-import { ArrowRight, StickyNote } from "lucide-react"
 import Link from "next/link"
 
 import { SeverityBadge } from "@/components/review/severity-badge"
 import { StatusBadge } from "@/components/review/status-badge"
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
 import { describeDecision } from "@/lib/review/decision-format"
 import { formatItemKind, formatTimestamp } from "@/lib/review/format"
 import type { ItemReviewState } from "@/lib/review/decisions"
@@ -38,7 +36,7 @@ export function itemStatusLine(
     ).note
     return `Unsure by ${reviewerName(names, state.latestUnsure.record.userId)} · ${formatTimestamp(state.latestUnsure.record.updatedAt)}${note ? ` — “${note}”` : ""}`
   }
-  return "Open · not reserved"
+  return "Not reserved"
 }
 
 export function ItemCard({
@@ -60,50 +58,38 @@ export function ItemCard({
     state.finalDecision?.stale === true || state.draft?.stale === true
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:border-ring/40">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <SeverityBadge severity={item.severity} />
-            <Badge variant="outline">{formatItemKind(item.kind)}</Badge>
-            <StatusBadge status={state.status} />
-            {isStale ? <Badge variant="destructive">Stale source</Badge> : null}
-            <span className="font-mono text-xs text-muted-foreground">
-              {item.ref}
-            </span>
-          </div>
-          {showPaper && paperTitle ? (
-            <p className="text-xs text-muted-foreground">
-              Paper {item.paperId} · {paperTitle}
-            </p>
-          ) : null}
-          <Link
-            href={href}
-            className="font-heading text-base leading-snug font-medium underline-offset-4 hover:underline"
-          >
-            {item.title}
-          </Link>
+    <div className="flex flex-col gap-1.5 rounded-lg border bg-card px-3 py-2.5 transition-colors hover:border-ring/40">
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <SeverityBadge severity={item.severity} />
+          <Badge variant="outline">{formatItemKind(item.kind)}</Badge>
+          <StatusBadge status={state.status} />
+          {isStale ? <Badge variant="destructive">Stale source</Badge> : null}
+          <span className="font-mono text-xs text-muted-foreground">
+            {item.ref}
+          </span>
         </div>
+        {showPaper && paperTitle ? (
+          <p className="text-xs text-muted-foreground">
+            Paper {item.paperId} · {paperTitle}
+          </p>
+        ) : null}
         <Link
           href={href}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
+          className="text-sm leading-snug font-medium underline-offset-4 hover:underline"
         >
-          Open
-          <ArrowRight data-icon="inline-end" />
+          {item.title}
         </Link>
       </div>
 
       {item.summary ? (
-        <p className="line-clamp-2 text-sm text-muted-foreground">
+        <p className="line-clamp-1 text-xs text-muted-foreground">
           {item.summary}
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <StickyNote data-icon="inline-start" />
-          {itemStatusLine(item, state, names)}
-        </span>
+        <span>{itemStatusLine(item, state, names)}</span>
         {state.draft ? (
           <span className="text-warning-foreground">
             You have a saved draft

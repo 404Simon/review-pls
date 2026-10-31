@@ -289,6 +289,19 @@ test("paper page links repositories to GitHub at the reviewed commit", async ({
   await expect(commitLink).toHaveAttribute("rel", "noreferrer noopener")
 })
 
+test("paper page links the mounted paper PDF", async ({ page, request }) => {
+  await signedInPage(page, request)
+  await page.goto("/batches/review-fixture/papers/1001")
+
+  const pdfLink = page.getByRole("link", { name: "Open PDF" })
+  await expect(pdfLink).toHaveAttribute("href", `${pdfUrl}#zoom=page-width`)
+  await expect(pdfLink).toHaveAttribute("target", "_blank")
+
+  const response = await page.request.get(pdfUrl)
+  expect(response.status()).toBe(200)
+  expect(response.headers()["content-type"]).toContain("application/pdf")
+})
+
 test("paper page links non-GitHub code entries to the local file browser", async ({
   page,
   request,

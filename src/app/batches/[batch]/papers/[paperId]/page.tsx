@@ -2,19 +2,16 @@ import {
   AlertTriangle,
   ArrowLeft,
   ExternalLink,
+  FileText,
   Folder,
   GitBranch,
-  Layers,
-  ShieldCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
 import { DataErrorState } from "@/components/review/data-error"
 import { ItemList } from "@/components/review/item-list"
-import { SeverityBadge } from "@/components/review/severity-badge"
 import { StatsCards } from "@/components/review/stats-cards"
-import { StatusBadge } from "@/components/review/status-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -26,14 +23,12 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  countItemStatuses,
   normalizeParams,
   parseItemTab,
   parseReviewFilters,
 } from "@/lib/review/filters"
-import { formatItemKind } from "@/lib/review/format"
+import { evidenceFileUrl } from "@/lib/review/evidence"
 import { githubTreeUrl } from "@/lib/review/github"
-import { ITEM_KINDS } from "@/lib/review/ids"
 import {
   isMissingReviewData,
   loadPaper,
@@ -108,7 +103,6 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
     throw error
   }
 
-  const statusCounts = countItemStatuses(paper.items, view.states)
   const stats = computePaperStats(
     {
       batchId,
@@ -119,6 +113,11 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
       now: view.now,
     },
     paperId
+  )
+  const paperPdfUrl = evidenceFileUrl(
+    batchId,
+    paperId,
+    paper.manifest.files.paperPdf
   )
   const caveats = loadedPaper.overlap.caveats ?? []
   const caveatCount =
@@ -151,56 +150,34 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
       </div>
 
       <header className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">{paper.manifest.category}</Badge>
-            <Badge variant="outline">{paper.manifest.auditowlStatus}</Badge>
-            <Badge
-              variant={
-                paper.manifest.comparisonEligible ? "secondary" : "destructive"
-              }
-            >
-              <ShieldCheck data-icon="inline-start" />
-              {paper.manifest.comparisonEligible
-                ? "Comparison eligible"
-                : "Not comparison eligible"}
-            </Badge>
-            <span className="font-mono text-xs text-muted-foreground">
-              paper {paperId}
-            </span>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>{paper.manifest.category}</span>
+              <span aria-hidden>·</span>
+              <span>AuditOwl {paper.manifest.auditowlStatus}</span>
+              <span aria-hidden>·</span>
+              <span>
+                {paper.counts.total} item
+                {paper.counts.total === 1 ? "" : "s"}
+              </span>
+              {paper.manifest.comparisonEligible ? null : (
+                <Badge variant="destructive">Not comparison eligible</Badge>
+              )}
+            </div>
+            <h1 className="max-w-5xl font-heading text-2xl font-medium text-balance sm:text-3xl">
+              {paper.manifest.title}
+            </h1>
           </div>
-          <h1 className="max-w-5xl font-heading text-2xl font-medium text-balance sm:text-3xl">
-            {paper.manifest.title}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {paper.counts.total} review item
-            {paper.counts.total === 1 ? "" : "s"} across {ITEM_KINDS.length}{" "}
-            item kinds. Tabs count the whole paper; filters narrow the list.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {ITEM_KINDS.map((kind) => (
-            <Badge key={kind} variant="outline">
-              {formatItemKind(kind)} {paper.counts.byKind[kind].total}
-            </Badge>
-          ))}
-          <StatusBadge status="open" />
-          <span className="text-xs text-muted-foreground">
-            {statusCounts.open}
-          </span>
-          <StatusBadge status="claimed" />
-          <span className="text-xs text-muted-foreground">
-            {statusCounts.claimed}
-          </span>
-          <StatusBadge status="unsure" />
-          <span className="text-xs text-muted-foreground">
-            {statusCounts.unsure}
-          </span>
-          <StatusBadge status="closed" />
-          <span className="text-xs text-muted-foreground">
-            {statusCounts.closed}
-          </span>
+          <a
+            href={`${paperPdfUrl}#zoom=page-width`}
+            target="_blank"
+            rel="noreferrer noopener"
+            className={buttonVariants({ size: "sm" })}
+          >
+            <FileText data-icon="inline-start" />
+            Open PDF
+          </a>
         </div>
 
         {caveats.length > 0 ||
@@ -241,142 +218,115 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
             </div>
           </details>
         ) : null}
+      </header>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <GitBranch data-icon="inline-start" />
-                Repositories and revisions
-              </CardTitle>
-              <CardDescription>
-                Open a repository on GitHub at the reviewed commit, or browse
-                local snapshots that have no remote. Evidence paths always
-                resolve inside the local snapshots.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {paper.manifest.code.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No code repositories were bundled with this paper. Evidence
-                  will fall back to checks, paper text and reports.
-                </p>
-              ) : (
-                paper.manifest.code.map((repo) => {
-                  const githubRef = {
-                    name: repo.name,
-                    url: repo.url,
-                    commit: repo.commit,
-                  }
-                  const githubUrl =
-                    repo.role === "repository" ? githubTreeUrl(githubRef) : null
-                  const filesUrl = `${basePath}/files/${repo.dir
-                    .split("/")
-                    .map(encodeURIComponent)
-                    .join("/")}`
-                  const shortCommit = repo.commit?.slice(0, 12)
-                  return (
-                    <div
-                      key={repo.name}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
-                    >
-                      <div className="flex min-w-0 flex-col">
-                        {githubUrl ? (
+      <StatsCards
+        stats={stats}
+        scopeLabel="All items on this paper."
+        completionLabel="Paper completion"
+      />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <GitBranch data-icon="inline-start" />
+            Repositories
+          </CardTitle>
+          <CardDescription>
+            GitHub links open the reviewed commit. Local snapshots open in the
+            file browser.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {paper.manifest.code.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No code repositories were bundled with this paper. Evidence will
+              fall back to checks, paper text and reports.
+            </p>
+          ) : (
+            paper.manifest.code.map((repo) => {
+              const githubRef = {
+                name: repo.name,
+                url: repo.url,
+                commit: repo.commit,
+              }
+              const githubUrl =
+                repo.role === "repository" ? githubTreeUrl(githubRef) : null
+              const filesUrl = `${basePath}/files/${repo.dir
+                .split("/")
+                .map(encodeURIComponent)
+                .join("/")}`
+              const shortCommit = repo.commit?.slice(0, 12)
+              return (
+                <div
+                  key={repo.name}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
+                >
+                  <div className="flex min-w-0 flex-col">
+                    {githubUrl ? (
+                      <a
+                        href={githubUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        title={`Open on GitHub at ${shortCommit}`}
+                        aria-label={`Open ${repo.name} on GitHub at ${shortCommit}`}
+                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                      >
+                        <GitBranch
+                          data-icon="inline-start"
+                          className="shrink-0"
+                        />
+                        <span className="truncate">{repo.name}</span>
+                        <ExternalLink
+                          data-icon="inline-end"
+                          className="size-3 shrink-0 text-muted-foreground"
+                        />
+                      </a>
+                    ) : (
+                      <Link
+                        href={filesUrl}
+                        title={`Browse ${repo.name} files`}
+                        aria-label={`Browse ${repo.name} files`}
+                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                      >
+                        <Folder data-icon="inline-start" className="shrink-0" />
+                        <span className="truncate">{repo.name}</span>
+                      </Link>
+                    )}
+                    <span className="font-mono text-xs break-all text-muted-foreground">
+                      {repo.dir}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{repo.role}</Badge>
+                    {githubUrl && shortCommit ? (
+                      <Badge
+                        variant="secondary"
+                        className="font-mono"
+                        render={
                           <a
                             href={githubUrl}
                             target="_blank"
                             rel="noreferrer noopener"
-                            title={`Open on GitHub at ${shortCommit}`}
-                            aria-label={`Open ${repo.name} on GitHub at ${shortCommit}`}
-                            className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
-                          >
-                            <GitBranch
-                              data-icon="inline-start"
-                              className="shrink-0"
-                            />
-                            <span className="truncate">{repo.name}</span>
-                            <ExternalLink
-                              data-icon="inline-end"
-                              className="size-3 shrink-0 text-muted-foreground"
-                            />
-                          </a>
-                        ) : (
-                          <Link
-                            href={filesUrl}
-                            title={`Browse ${repo.name} files`}
-                            aria-label={`Browse ${repo.name} files`}
-                            className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
-                          >
-                            <Folder
-                              data-icon="inline-start"
-                              className="shrink-0"
-                            />
-                            <span className="truncate">{repo.name}</span>
-                          </Link>
-                        )}
-                        <span className="font-mono text-xs break-all text-muted-foreground">
-                          {repo.dir}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{repo.role}</Badge>
-                        {githubUrl && shortCommit ? (
-                          <Badge
-                            variant="secondary"
-                            className="font-mono"
-                            render={
-                              <a
-                                href={githubUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                title={`Open tree at ${repo.commit} on GitHub`}
-                                aria-label={`Open tree at ${shortCommit} on GitHub`}
-                              />
-                            }
-                          >
-                            {shortCommit}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="font-mono">
-                            {repo.commit
-                              ? repo.commit.slice(0, 12)
-                              : "no revision"}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Layers data-icon="inline-start" />
-                Severity
-              </CardTitle>
-              <CardDescription>
-                Severity is the maximum of both sides where applicable.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-2">
-              {(["high", "medium", "low"] as const).map((severity) => (
-                <div
-                  key={severity}
-                  className="flex flex-col gap-2 rounded-lg border px-3 py-2"
-                >
-                  <SeverityBadge severity={severity} />
-                  <span className="font-heading text-2xl leading-none font-medium tabular-nums">
-                    {paper.counts.bySeverity[severity]}
-                  </span>
+                            title={`Open tree at ${repo.commit} on GitHub`}
+                            aria-label={`Open tree at ${shortCommit} on GitHub`}
+                          />
+                        }
+                      >
+                        {shortCommit}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="font-mono">
+                        {repo.commit ? repo.commit.slice(0, 12) : "no revision"}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-      </header>
+              )
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {revisionMismatches.length > 0 ? (
         <Alert variant="destructive">
@@ -403,18 +353,9 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
         </Alert>
       ) : null}
 
-      <StatsCards
-        stats={stats}
-        scopeLabel="All items on this paper."
-        completionLabel="Paper completion"
-      />
-
       <Card>
         <CardHeader>
           <CardTitle>Review items</CardTitle>
-          <CardDescription>
-            Open any item to read its evidence and record a decision.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <ItemList
@@ -431,12 +372,6 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
           />
         </CardContent>
       </Card>
-
-      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <ExternalLink data-icon="inline-start" />
-        Evidence opens inside the item page. The paper PDF stays behind the
-        authenticated evidence route.
-      </div>
     </div>
   )
 }
