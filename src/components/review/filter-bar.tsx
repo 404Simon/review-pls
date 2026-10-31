@@ -108,65 +108,65 @@ export function FilterBar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-end",
+        "flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2",
         className
       )}
     >
       {fields.map((field) => (
-        <div key={field.key} className="flex min-w-36 flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            {field.label}
-          </span>
-          <Select
-            value={field.value}
-            onValueChange={(value) => {
-              if (typeof value === "string") {
-                apply({ [field.key]: value })
-              }
-            }}
+        <Select
+          key={field.key}
+          items={field.options.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))}
+          value={field.value}
+          onValueChange={(value) => {
+            if (typeof value === "string") {
+              apply({ [field.key]: value })
+            }
+          }}
+        >
+          <SelectTrigger
+            size="sm"
+            aria-label={field.label}
+            className="min-w-36 hover:bg-accent"
           >
-            <SelectTrigger size="sm" aria-label={field.label}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {field.options.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start" alignItemWithTrigger={false}>
+            {field.options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       ))}
 
       {search ? (
-        <div className="flex min-w-48 flex-1 flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">
-            {search.label}
-          </span>
-          <Input
-            ref={inputRef}
-            data-review-search
-            defaultValue={search.value}
-            onInput={(event) => {
-              const value = event.currentTarget.value
-              if (searchTimer.current !== null) {
-                window.clearTimeout(searchTimer.current)
-              }
-              searchTimer.current = window.setTimeout(() => {
-                apply({ q: value.trim() })
-              }, 300)
-            }}
-            placeholder={search.placeholder}
-            aria-label={search.label}
-          />
-        </div>
+        <Input
+          ref={inputRef}
+          data-review-search
+          className="h-7 min-w-48 flex-1 text-sm"
+          defaultValue={search.value}
+          onInput={(event) => {
+            const value = event.currentTarget.value
+            if (searchTimer.current !== null) {
+              window.clearTimeout(searchTimer.current)
+            }
+            searchTimer.current = window.setTimeout(() => {
+              apply({ q: value.trim() })
+            }, 300)
+          }}
+          placeholder={search.placeholder}
+          aria-label={search.label}
+        />
       ) : null}
 
       {active ? (
         <Button variant="ghost" size="sm" onClick={reset}>
           <X data-icon="inline-start" />
-          Reset filters
+          Reset
         </Button>
       ) : null}
     </div>

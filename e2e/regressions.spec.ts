@@ -475,8 +475,12 @@ test("navigation controls are links, not buttons", async ({
   await signedInPage(page, request, "link-roles")
 
   await page.goto("/dashboard")
-  await expect(page.getByRole("link", { name: "Open queue" })).toBeVisible()
-  await expect(page.getByRole("button", { name: "Open queue" })).toHaveCount(0)
+  await expect(
+    page.getByRole("link", { name: "Start next item" })
+  ).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "Start next item" })
+  ).toHaveCount(0)
 
   await page.goto("/batches/review-fixture/papers/1001")
   await expect(page.getByRole("link", { name: /^Open$/ }).first()).toBeVisible()

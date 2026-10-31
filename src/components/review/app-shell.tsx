@@ -12,7 +12,6 @@ import { listBatches, ReviewDataError } from "@/lib/review/load"
 
 export interface AppShellUser {
   name: string
-  email: string
 }
 
 export interface AppShellProps {
@@ -88,12 +87,13 @@ export async function AppShell({
 
           <div className="ml-auto flex min-w-0 items-center gap-2">
             <Suspense fallback={null}>
-              <BatchSelect batches={batches} activeBatchId={activeBatchId} />
+              <BatchSelect
+                batches={batches}
+                activeBatchId={activeBatchId}
+                defaultBatchId={defaultBatchId}
+              />
             </Suspense>
             <ThemeToggle />
-            <span className="hidden max-w-56 truncate text-sm text-muted-foreground lg:block">
-              {user.email}
-            </span>
             <SignOutButton />
           </div>
         </div>

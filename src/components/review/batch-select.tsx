@@ -19,9 +19,12 @@ export interface BatchOption {
 export function BatchSelect({
   batches,
   activeBatchId,
+  defaultBatchId,
 }: {
   batches: readonly BatchOption[]
   activeBatchId: string | null
+  /** First healthy batch, used when no valid batch is requested. */
+  defaultBatchId: string | null
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -35,7 +38,7 @@ export function BatchSelect({
       ? batches.some((batch) => batch.batchId === fromQuery)
         ? fromQuery
         : null
-      : (batches[0]?.batchId ?? null))
+      : (defaultBatchId ?? batches[0]?.batchId ?? null))
 
   if (batches.length === 0) {
     return null
@@ -62,7 +65,7 @@ export function BatchSelect({
       >
         <SelectValue />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent align="start" alignItemWithTrigger={false}>
         {batches.map((batch) => (
           <SelectItem key={batch.batchId} value={batch.batchId}>
             {batch.label}

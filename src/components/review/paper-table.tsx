@@ -1,7 +1,5 @@
-import { ArrowUpRight } from "lucide-react"
 import Link from "next/link"
 
-import { SeverityBadge } from "@/components/review/severity-badge"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -15,6 +13,7 @@ import {
 import { formatPercent } from "@/lib/review/format"
 import { paperPath } from "@/lib/review/filters"
 import type { ItemStatus, SeverityCounts } from "@/lib/review/types"
+import { cn } from "@/lib/utils"
 
 export interface PaperTableRow {
   id: string
@@ -40,6 +39,19 @@ const STATUS_DOTS: Readonly<Record<ItemStatus, string>> = {
   closed: "bg-success",
 }
 
+const SEVERITY_TEXT: Readonly<Record<keyof SeverityCounts, string>> = {
+  high: "text-destructive",
+  medium: "text-warning-foreground",
+  low: "text-info-foreground",
+}
+
+const STATUS_ORDER: readonly ItemStatus[] = [
+  "open",
+  "claimed",
+  "unsure",
+  "closed",
+]
+
 function StatusChip({ status, count }: { status: ItemStatus; count: number }) {
   if (count === 0) {
     return null
@@ -48,7 +60,7 @@ function StatusChip({ status, count }: { status: ItemStatus; count: number }) {
     <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
       <span
         aria-hidden
-        className={`size-1.5 rounded-full ${STATUS_DOTS[status]}`}
+        className={cn("size-1.5 rounded-full", STATUS_DOTS[status])}
       />
       {count} {status}
     </span>
@@ -83,18 +95,9 @@ export function PaperTable({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="min-w-64">Paper</TableHead>
-          <TableHead className="text-center">High</TableHead>
-          <TableHead className="text-center">Medium</TableHead>
-          <TableHead className="text-center">Low</TableHead>
-          <TableHead className="text-center">Total</TableHead>
-          <TableHead className="text-center">
-            Clusters / New / Misses / Related
-          </TableHead>
-          <TableHead className="min-w-40">Progress</TableHead>
-          <TableHead className="min-w-40">Status</TableHead>
-          <TableHead className="w-10">
-            <span className="sr-only">Open</span>
+          <TableHead>Paper</TableHead>
+          <TableHead className="w-32 min-w-32 sm:w-72 sm:min-w-40">
+            Progress
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -103,8 +106,8 @@ export function PaperTable({
           const href = paperPath(batchId, paper.id)
           return (
             <TableRow key={paper.id} className="group">
-              <TableCell className="min-w-64 whitespace-normal">
-                <div className="flex flex-col gap-1">
+              <TableCell className="whitespace-normal">
+                <div className="flex flex-col gap-0.5">
                   <Link
                     href={href}
                     className="font-medium underline-offset-4 group-hover:underline"
@@ -114,8 +117,25 @@ export function PaperTable({
                     </span>{" "}
                     {paper.title}
                   </Link>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{paper.category}</Badge>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span>{paper.category}</span>
+                    {(["high", "medium", "low"] as const).map((severity) => {
+                      const count = paper.counts.bySeverity[severity]
+                      return (
+                        <span
+                          key={severity}
+                          aria-label={`${severityCellLabel(severity, paper.id)}: ${count}`}
+                          className={cn(
+                            "tabular-nums",
+                            count === 0
+                              ? "text-muted-foreground/50"
+                              : SEVERITY_TEXT[severity]
+                          )}
+                        >
+                          {count} {severity}
+                        </span>
+                      )
+                    })}
                     {paper.comparisonEligible ? null : (
                       <Badge variant="destructive">
                         Not comparison eligible
@@ -124,58 +144,8 @@ export function PaperTable({
                   </div>
                 </div>
               </TableCell>
-              <TableCell className="text-center">
-                <span
-                  aria-label={`${severityCellLabel("high", paper.id)}: ${paper.counts.bySeverity.high}`}
-                >
-                  <SeverityBadge severity="high" />
-                  <span className="ml-1 tabular-nums">
-                    {paper.counts.bySeverity.high}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell className="text-center">
-                <span
-                  aria-label={`${severityCellLabel("medium", paper.id)}: ${paper.counts.bySeverity.medium}`}
-                >
-                  <SeverityBadge severity="medium" />
-                  <span className="ml-1 tabular-nums">
-                    {paper.counts.bySeverity.medium}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell className="text-center">
-                <span
-                  aria-label={`${severityCellLabel("low", paper.id)}: ${paper.counts.bySeverity.low}`}
-                >
-                  <SeverityBadge severity="low" />
-                  <span className="ml-1 tabular-nums">
-                    {paper.counts.bySeverity.low}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell className="text-center font-medium tabular-nums">
-                {paper.counts.total}
-              </TableCell>
               <TableCell>
-                <div className="flex flex-wrap items-center justify-center gap-1.5 font-mono text-xs tabular-nums">
-                  <span title="Match clusters">{paper.counts.clusters}</span>
-                  <span className="text-muted-foreground">/</span>
-                  <span title="Agent-only findings">
-                    {paper.counts.agentOnly}
-                  </span>
-                  <span className="text-muted-foreground">/</span>
-                  <span title="AuditOwl-only findings">
-                    {paper.counts.auditowlOnly}
-                  </span>
-                  <span className="text-muted-foreground">/</span>
-                  <span title="Related-not-matched pairs">
-                    {paper.counts.related}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex min-w-36 flex-col gap-1">
+                <div className="flex min-w-0 flex-col gap-1.5 sm:min-w-40">
                   <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>{formatPercent(paper.completion)}</span>
                     <span className="tabular-nums">
@@ -186,24 +156,16 @@ export function PaperTable({
                     value={paper.completion * 100}
                     aria-label={`Paper ${paper.id} completion: ${formatPercent(paper.completion)}`}
                   />
+                  <div className="flex flex-wrap gap-x-3 gap-y-1">
+                    {STATUS_ORDER.map((status) => (
+                      <StatusChip
+                        key={status}
+                        status={status}
+                        count={paper.status[status]}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex max-w-48 flex-wrap gap-x-3 gap-y-1">
-                  <StatusChip status="open" count={paper.status.open} />
-                  <StatusChip status="claimed" count={paper.status.claimed} />
-                  <StatusChip status="unsure" count={paper.status.unsure} />
-                  <StatusChip status="closed" count={paper.status.closed} />
-                </div>
-              </TableCell>
-              <TableCell>
-                <Link
-                  href={href}
-                  aria-label={`Open paper ${paper.id}`}
-                  className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                  <ArrowUpRight className="size-4" />
-                </Link>
               </TableCell>
             </TableRow>
           )

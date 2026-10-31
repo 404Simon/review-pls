@@ -1,10 +1,4 @@
-import {
-  ArrowRight,
-  BookOpen,
-  ClipboardList,
-  Database,
-  PlayCircle,
-} from "lucide-react"
+import { BookOpen, ClipboardList, Database, PlayCircle } from "lucide-react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
@@ -13,10 +7,10 @@ import { EmptyState } from "@/components/review/empty-state"
 import { FilterBar } from "@/components/review/filter-bar"
 import { PaperTable, type PaperTableRow } from "@/components/review/paper-table"
 import { StatsCards } from "@/components/review/stats-cards"
-import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -29,11 +23,9 @@ import {
   parseReviewFilters,
   normalizeParams,
   queryFromFilters,
-  queuePath,
   withQuery,
 } from "@/lib/review/filters"
 import { db } from "@/db"
-import { formatPercent, formatTimestamp } from "@/lib/review/format"
 import {
   isMissingReviewData,
   listBatches,
@@ -165,94 +157,44 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       ) : (
         <DashboardBatch
           batchId={activeBatch.batchId}
-          batchLabel={activeBatch.label}
           userId={user.id}
           isAdmin={role === "admin"}
           filters={filters}
           params={params}
-          batchOptions={batches.map((batch) => ({
-            value: batch.batchId,
-            label: batch.error ? `${batch.label} (data error)` : batch.label,
-          }))}
         />
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card id="profile">
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>
-              The details you gave when you registered.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid gap-4 sm:grid-cols-2">
-              {details.map((detail) => (
-                <div key={detail.label} className="flex flex-col gap-1">
-                  <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                    {detail.label}
-                  </dt>
-                  <dd className="truncate text-sm">
-                    {formatDetail(detail.value)}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>How to review</CardTitle>
-            <CardDescription>A calm, repeatable loop.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <p className="flex items-start gap-2">
-              <PlayCircle
-                data-icon="inline-start"
-                className="mt-0.5 text-muted-foreground"
-              />
-              Reserve one item, read the evidence, and record the verdict that
-              the evidence supports.
-            </p>
-            <p className="flex items-start gap-2">
-              <ClipboardList
-                data-icon="inline-start"
-                className="mt-0.5 text-muted-foreground"
-              />
-              Use the note field for your reasoning. The comparator is a hint,
-              never a decision.
-            </p>
-            <Link
-              href="/guide"
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              Open the protocol guide
-              <ArrowRight data-icon="inline-end" />
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <details className="group rounded-xl border bg-card px-4 py-3">
+        <summary className="cursor-pointer text-sm font-medium">
+          Profile
+        </summary>
+        <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+          {details.map((detail) => (
+            <div key={detail.label} className="flex flex-col gap-1">
+              <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {detail.label}
+              </dt>
+              <dd className="truncate text-sm">{formatDetail(detail.value)}</dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </>
   )
 }
 
 async function DashboardBatch({
   batchId,
-  batchLabel,
   userId,
   isAdmin,
   filters,
   params,
-  batchOptions,
 }: {
   batchId: string
-  batchLabel: string
   userId: string
   isAdmin: boolean
   filters: ReturnType<typeof parseReviewFilters>
   params: Record<string, string>
-  batchOptions: readonly { value: string; label: string }[]
 }) {
   let view: Awaited<ReturnType<typeof loadBatchReviewView>>
   try {
@@ -267,8 +209,7 @@ async function DashboardBatch({
     return <DataErrorState error={error} batchId={batchId} isAdmin={isAdmin} />
   }
 
-  const { loaded, states, decisions, claims, reviewerNames, now } = view
-  const generatedAt = new Date(loaded.batch.manifest.generatedAt).getTime()
+  const { loaded, states, decisions, claims, now } = view
   const stats = computeBatchStats({
     batchId,
     items: loaded.items,
@@ -318,13 +259,7 @@ async function DashboardBatch({
   const preserved = queryFromFilters(filters)
 
   const severityOrder: readonly Severity[] = ["high", "medium", "low"]
-  const activeFilterLabels = [
-    filters.severity !== "all" ? `severity ${filters.severity}` : null,
-    filters.kind !== "all" ? `type ${filters.kind.replace(/_/g, " ")}` : null,
-    filters.status !== "all" ? `status ${filters.status}` : null,
-    filters.mine ? "only mine" : null,
-    filters.search !== "" ? `search “${filters.search}”` : null,
-  ].filter((label): label is string => label !== null)
+  const isFiltered = filteredRows.length !== rows.length
 
   return (
     <div className="flex flex-col gap-4">
@@ -334,12 +269,6 @@ async function DashboardBatch({
         basePath="/dashboard"
         params={params}
         fields={[
-          {
-            key: "batch",
-            label: "Batch",
-            value: params.batch ?? batchId,
-            options: batchOptions,
-          },
           {
             key: "severity",
             label: "Severity",
@@ -394,50 +323,23 @@ async function DashboardBatch({
       />
 
       <Card>
-        <CardHeader className="gap-3">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="flex flex-col gap-1">
-              <CardTitle>Papers</CardTitle>
-              <CardDescription>
-                {batchLabel} · sorted by high, then medium, then total items.
-                Headline counts above cover the whole batch; each paper row
-                counts the whole paper even while filters hide papers or items.
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {resumeItem ? (
-                <Link
-                  href={withQuery(itemPath(batchId, resumeItem.id), preserved)}
-                  className={buttonVariants({ size: "sm" })}
-                >
-                  <PlayCircle data-icon="inline-start" />
-                  {claimed[0] ? "Resume reserved item" : "Start next item"}
-                </Link>
-              ) : null}
+        <CardHeader>
+          <CardTitle>Papers</CardTitle>
+          <CardDescription>
+            {isFiltered
+              ? `${filteredRows.length} of ${rows.length} papers match`
+              : `${rows.length} papers`}
+          </CardDescription>
+          {resumeItem ? (
+            <CardAction>
               <Link
-                href={withQuery(queuePath(batchId), preserved)}
-                className={buttonVariants({
-                  variant: "outline",
-                  size: "sm",
-                })}
+                href={withQuery(itemPath(batchId, resumeItem.id), preserved)}
+                className={buttonVariants({ size: "sm" })}
               >
-                <ClipboardList data-icon="inline-start" />
-                Open queue
+                <PlayCircle data-icon="inline-start" />
+                {claimed[0] ? "Resume reserved item" : "Start next item"}
               </Link>
-            </div>
-          </div>
-          {activeFilterLabels.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground">Filtering:</span>
-              {activeFilterLabels.map((label) => (
-                <Badge key={label} variant="outline">
-                  {label}
-                </Badge>
-              ))}
-              <span className="text-xs text-muted-foreground">
-                {filteredRows.length} of {rows.length} papers match
-              </span>
-            </div>
+            </CardAction>
           ) : null}
         </CardHeader>
         <CardContent className="px-0">
@@ -446,58 +348,12 @@ async function DashboardBatch({
               <EmptyState
                 icon={ClipboardList}
                 title="No papers match these filters"
-                description="Reset the filters above, or open the queue for a single severity-sorted worklist."
+                description="Reset the filters above to see every paper again."
               />
             </div>
           ) : (
             <PaperTable batchId={batchId} papers={filteredRows} />
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Batch provenance</CardTitle>
-          <CardDescription>
-            Mounted at{" "}
-            {Number.isNaN(generatedAt)
-              ? "an unknown time"
-              : formatTimestamp(generatedAt)}
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Papers
-            </span>
-            <span>{loaded.papers.length} included</span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Excluded
-            </span>
-            <span>{loaded.excluded.length}</span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Completion
-            </span>
-            <span>{formatPercent(stats.completion)}</span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Reviewer names known
-            </span>
-            <span>{Object.keys(reviewerNames).length}</span>
-          </div>
-          {loaded.issues.length > 0 ? (
-            <p className="text-destructive sm:col-span-2 lg:col-span-4">
-              {loaded.issues.length} data validation issue
-              {loaded.issues.length === 1 ? "" : "s"} found while building this
-              batch. Open the guide for the data contract.
-            </p>
-          ) : null}
         </CardContent>
       </Card>
     </div>
