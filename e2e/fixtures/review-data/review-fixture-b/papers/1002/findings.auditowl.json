@@ -1,0 +1,47 @@
+{
+  "schema_version": "1",
+  "audit": "auditowl/audit.md",
+  "findings": [
+    {
+      "id": "o1",
+      "id_local": "o1",
+      "category": "empirical",
+      "title": "Validation split overlaps with the training data",
+      "severity": "medium",
+      "status": "finding",
+      "file": "train.py",
+      "line_start": 9,
+      "line_end": 12,
+      "quote": "train_rows = load('train.csv')\nval_rows = load('train.csv')",
+      "claim": "The validation rows come from the training file.",
+      "concern": "The validation score is optimistic.",
+      "resolution": "Load a separate validation file.",
+      "paper_ref": "p. 2",
+      "check_script": "_audit_code/out/audit_check.json",
+      "audit_md_line": 3,
+      "verification": {
+        "status": "confirmed",
+        "checked": ["_audit_code/out/audit_check.json"],
+        "note": "The JSON records the same loader."
+      },
+      "verdict": "keep"
+    },
+    {
+      "id": "o2",
+      "id_local": "o2",
+      "category": "presentation",
+      "title": "Figure caption does not match the axis label",
+      "severity": "low",
+      "status": "finding",
+      "file": "train.py",
+      "line_start": 20,
+      "line_end": 20,
+      "quote": "print(history)",
+      "claim": "The figure axis says accuracy while the caption says loss.",
+      "concern": "Readers may misread the direction of the curve.",
+      "paper_ref": "p. 3",
+      "audit_md_line": 6,
+      "verdict": "keep"
+    }
+  ]
+}

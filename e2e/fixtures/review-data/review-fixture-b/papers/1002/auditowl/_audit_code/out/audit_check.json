@@ -1,0 +1,5 @@
+{
+  "overlap_rows": 42,
+  "source": "train.csv",
+  "note": "Synthetic fixture check output."
+}

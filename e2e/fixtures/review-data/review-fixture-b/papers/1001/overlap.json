@@ -1,0 +1,136 @@
+{
+  "schema_version": "1",
+  "paper": {
+    "id": "1001",
+    "title": "Fixture Paper: Evidence Viewer",
+    "category": "empirical",
+    "auditowl_status": "audited",
+    "comparison_eligible": true,
+    "scope_note": null
+  },
+  "matches": [
+    {
+      "match_id": "M01",
+      "relation": "same",
+      "coverage": "equivalent",
+      "strength": "exact",
+      "auditowl": [
+        "o1"
+      ],
+      "agent": [
+        "a1"
+      ],
+      "shared_defect": "Test statistics leak into augmentation search",
+      "anchor": "train.py:10-14",
+      "severity": {
+        "auditowl": [
+          "high"
+        ],
+        "agent": [
+          "high"
+        ],
+        "agreement": "same"
+      },
+      "status": {
+        "auditowl": [
+          "finding"
+        ],
+        "agent": [
+          "finding"
+        ],
+        "agreement": "same"
+      },
+      "verification": {
+        "status": "confirmed",
+        "checked": [
+          "out/check_split.csv"
+        ],
+        "note": "Both sides point at the same selection loop."
+      },
+      "agent_adds": "Adds the exact line range.",
+      "auditowl_adds": "Adds the CSV check output."
+    }
+  ],
+  "auditowl_only": [
+    {
+      "id": "o2",
+      "title": "No seed control for the reported variance",
+      "category": "empirical",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep",
+      "miss_reason": "Outside the agent's scope.",
+      "notes": "Fixture-only miss.",
+      "verification": {
+        "status": "partial",
+        "checked": [
+          "_audit_code/out/audit_check.json"
+        ]
+      }
+    },
+    {
+      "id": "o3",
+      "title": "Seeding is inconsistent across runs",
+      "category": "empirical",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep"
+    }
+  ],
+  "agent_only": [
+    {
+      "id": "a2",
+      "title": "Checkpoint selection uses the test split",
+      "category": "empirical",
+      "severity": "medium",
+      "status": "finding",
+      "verdict": "keep",
+      "assessment": "confirmed_valid",
+      "novelty": "genuine_addition",
+      "notes": "Fixture-only addition.",
+      "verification": {
+        "status": "confirmed",
+        "checked": [
+          "out/check_split.csv"
+        ]
+      }
+    },
+    {
+      "id": "a3",
+      "title": "Random seed is reset in the training loop",
+      "category": "empirical",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep"
+    },
+    {
+      "id": "a4",
+      "title": "Guard fixture finding for keyboard regressions",
+      "category": "empirical",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep",
+      "notes": "Synthetic fixture only."
+    },
+    {
+      "id": "a5",
+      "title": "Second guard fixture finding for admin dialog tests",
+      "category": "empirical",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep",
+      "notes": "Synthetic fixture only."
+    }
+  ],
+  "related_not_matched": [
+    {
+      "auditowl": [
+        "o3"
+      ],
+      "agent": [
+        "a3"
+      ],
+      "reason": "Both discuss seeding but at different code paths."
+    }
+  ]
+}

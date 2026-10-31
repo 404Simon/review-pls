@@ -1,0 +1,23 @@
+{
+  "schema_version": "1",
+  "audit": "run/audit.md",
+  "findings": [
+    {
+      "id": "a1",
+      "id_local": "a1",
+      "category": "empirical",
+      "title": "Admin claim release target",
+      "severity": "low",
+      "status": "finding",
+      "file": "code/repo2/train.py",
+      "line_start": 1,
+      "line_end": 2,
+      "quote": "def load(path):\n    with open(path) as handle:",
+      "claim": "Dedicated fixture claim for the admin claim-release test.",
+      "concern": "Synthetic fixture only.",
+      "paper_ref": "p. 1",
+      "audit_md_line": 1,
+      "verdict": "keep"
+    }
+  ]
+}

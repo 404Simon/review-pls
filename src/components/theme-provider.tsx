@@ -3,6 +3,8 @@
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes"
 
+import { hasOpenOverlay, isTypingTarget } from "@/lib/review/shortcuts"
+
 function ThemeProvider({
   children,
   ...props
@@ -18,19 +20,6 @@ function ThemeProvider({
       <ThemeHotkey />
       {children}
     </NextThemesProvider>
-  )
-}
-
-function isTypingTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false
-  }
-
-  return (
-    target.isContentEditable ||
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT"
   )
 }
 
@@ -51,7 +40,10 @@ function ThemeHotkey() {
         return
       }
 
-      if (isTypingTarget(event.target)) {
+      if (
+        isTypingTarget(event.target) ||
+        hasOpenOverlay((selector) => document.querySelector(selector))
+      ) {
         return
       }
 

@@ -1,0 +1,77 @@
+{
+  "schema_version": "1",
+  "paper": {
+    "id": "1002",
+    "title": "Fixture Paper: Queue and Decisions",
+    "category": "theory",
+    "auditowl_status": "audited",
+    "comparison_eligible": true,
+    "scope_note": null
+  },
+  "matches": [
+    {
+      "match_id": "M01",
+      "relation": "same",
+      "coverage": "equivalent",
+      "strength": "strong",
+      "auditowl": ["o1"],
+      "agent": ["a1"],
+      "shared_defect": "Validation split overlaps with the training data",
+      "anchor": "train.py:9-12",
+      "severity": {
+        "auditowl": ["medium"],
+        "agent": ["medium"],
+        "agreement": "same"
+      },
+      "status": {
+        "auditowl": ["finding"],
+        "agent": ["finding"],
+        "agreement": "same"
+      },
+      "verification": {
+        "status": "confirmed",
+        "checked": ["out/check_medium.csv"],
+        "note": "Both sides cite the same overlapping loader."
+      },
+      "agent_adds": "Adds the exact overlap count.",
+      "auditowl_adds": "Adds the check output."
+    }
+  ],
+  "auditowl_only": [
+    {
+      "id": "o2",
+      "title": "Figure caption does not match the axis label",
+      "category": "presentation",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep",
+      "miss_reason": "Outside the agent's scope.",
+      "notes": "Presentation-only fixture.",
+      "verification": {
+        "status": "partial",
+        "checked": ["_audit_code/out/audit_check.json"]
+      }
+    }
+  ],
+  "agent_only": [
+    {
+      "id": "a2",
+      "title": "Missing ablation for the central component",
+      "category": "empirical",
+      "severity": "high",
+      "status": "finding",
+      "verdict": "keep",
+      "assessment": "confirmed_valid",
+      "novelty": "genuine_addition",
+      "notes": "The paper never removes the central component.",
+      "verification": {
+        "status": "confirmed",
+        "checked": ["out/check_medium.csv"]
+      }
+    }
+  ],
+  "related_not_matched": [],
+  "caveats": [
+    "Synthetic fixture: counts and evidence are intentionally small."
+  ]
+}

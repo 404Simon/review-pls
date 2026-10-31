@@ -1,0 +1,3 @@
+check,reference,result
+1,train.py:9-12,validation rows loaded from train.csv
+2,train.py:15-17,no ablation for the central component

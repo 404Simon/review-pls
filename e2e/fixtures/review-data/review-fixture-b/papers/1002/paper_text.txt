@@ -1,0 +1,11 @@
+Fixture Paper: Queue and Decisions
+
+Abstract. We study a small synthetic pipeline for the queue and decision flows.
+
+2 Method
+
+We report a validation split that overlaps with the training data. The same examples appear in both loaders, so the reported gain is optimistic.
+
+3 Results
+
+The central component is used without an ablation. Figure 1 compares the two methods with an axis label that does not match the caption.

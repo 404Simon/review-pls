@@ -24,6 +24,15 @@
     --color-input: var(--input);
     --color-border: var(--border);
     --color-destructive: var(--destructive);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-warning-border: var(--warning-border);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+    --color-info-border: var(--info-border);
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-success-border: var(--success-border);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
     --color-muted-foreground: var(--muted-foreground);
@@ -63,6 +72,15 @@
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
     --destructive: oklch(0.577 0.245 27.325);
+    --warning: oklch(0.97 0.05 85);
+    --warning-foreground: oklch(0.42 0.12 70);
+    --warning-border: oklch(0.89 0.09 85);
+    --info: oklch(0.97 0.03 250);
+    --info-foreground: oklch(0.42 0.14 255);
+    --info-border: oklch(0.9 0.06 250);
+    --success: oklch(0.48 0.14 150);
+    --success-foreground: oklch(0.98 0.01 150);
+    --success-border: oklch(0.88 0.08 150);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
@@ -98,6 +116,15 @@
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
+    --warning: oklch(0.31 0.06 80);
+    --warning-foreground: oklch(0.9 0.11 85);
+    --warning-border: oklch(0.42 0.08 80);
+    --info: oklch(0.31 0.06 250);
+    --info-foreground: oklch(0.88 0.08 250);
+    --info-border: oklch(0.42 0.08 250);
+    --success: oklch(0.55 0.13 150);
+    --success-foreground: oklch(0.97 0.02 150);
+    --success-border: oklch(0.44 0.09 150);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
@@ -126,4 +153,15 @@
   html {
     @apply font-sans;
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

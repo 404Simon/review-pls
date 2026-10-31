@@ -1,0 +1,9 @@
+{
+  "paper_number": 1001,
+  "title": "Fixture Paper: Evidence Viewer",
+  "authors": ["Fixture Author"],
+  "category": "empirical",
+  "track": "main",
+  "abstract_url": "https://example.org/abstract/1001",
+  "pdf_url": "https://example.org/paper/1001.pdf"
+}

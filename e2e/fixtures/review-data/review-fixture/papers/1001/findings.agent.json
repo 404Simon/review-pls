@@ -1,0 +1,114 @@
+{
+  "schema_version": "1",
+  "audit": "run/audit.md",
+  "findings": [
+    {
+      "id": "a1",
+      "id_local": "a1",
+      "category": "empirical",
+      "title": "Test statistics leak into augmentation search",
+      "severity": "high",
+      "status": "finding",
+      "file": "code/fixturerepo/train.py",
+      "line_start": 10,
+      "line_end": 14,
+      "quote": "for aug in candidates:\n    val_acc = evaluate(model, test_loader, aug)\n    scores[aug] = val_acc\nbest_aug = max(candidates, key=lambda aug: scores[aug])\nreturn best_aug",
+      "claim": "The augmentation is selected on the test split.",
+      "concern": "This inflates the reported accuracy.",
+      "resolution": "Select the augmentation on a validation split.",
+      "paper_ref": "p. 2",
+      "check_script": "out/check_split.py",
+      "audit_md_line": 4,
+      "cross_refs": [
+        "out/check_split.csv"
+      ],
+      "verification": {
+        "status": "confirmed",
+        "checked": [
+          "out/check_split.csv"
+        ],
+        "note": "The CSV lists the test split reference."
+      },
+      "verdict": "keep"
+    },
+    {
+      "id": "a2",
+      "id_local": "a2",
+      "category": "empirical",
+      "title": "Checkpoint selection uses the test split",
+      "severity": "medium",
+      "status": "finding",
+      "file": "code/fixturerepo/evaluate.py",
+      "line_start": 5,
+      "line_end": 7,
+      "quote": "    checkpoint = max(batch, key=lambda item: item.score)\n    total += checkpoint.score\nreturn total",
+      "claim": "The best checkpoint is chosen with test scores.",
+      "concern": "Checkpoint selection is not independent of the test set.",
+      "resolution": "Use the validation loader for checkpoint selection.",
+      "paper_ref": "p. 3",
+      "check_script": "out/check_split.py",
+      "audit_md_line": 5,
+      "cross_refs": [
+        "out/check_split.csv"
+      ],
+      "verification": {
+        "status": "confirmed",
+        "checked": [
+          "out/check_split.csv"
+        ]
+      },
+      "verdict": "keep"
+    },
+    {
+      "id": "a3",
+      "id_local": "a3",
+      "category": "empirical",
+      "title": "Random seed is reset in the training loop",
+      "severity": "low",
+      "status": "finding",
+      "file": "code/fixturerepo/train.py",
+      "line_start": 22,
+      "line_end": 23,
+      "quote": "random.seed(seed)\nreturn best_aug",
+      "claim": "The seed is reset after training.",
+      "concern": "Resetting the seed hides run-to-run variance.",
+      "paper_ref": "p. 3",
+      "audit_md_line": 6,
+      "verdict": "keep"
+    },
+    {
+      "id": "a4",
+      "id_local": "a4",
+      "category": "empirical",
+      "title": "Guard fixture finding for keyboard regressions",
+      "severity": "low",
+      "status": "finding",
+      "file": "code/fixturerepo/train.py",
+      "line_start": 8,
+      "line_end": 9,
+      "quote": "for aug in candidates:\n    val_acc = evaluate(model, test_loader, aug)",
+      "claim": "A dedicated low-severity item keeps shortcut tests independent.",
+      "concern": "Synthetic fixture only.",
+      "paper_ref": "p. 2",
+      "audit_md_line": 4,
+      "verdict": "keep"
+    },
+    {
+      "id": "a5",
+      "id_local": "a5",
+      "category": "empirical",
+      "title": "Second guard fixture finding for admin dialog tests",
+      "severity": "low",
+      "status": "finding",
+      "file": "code/fixturerepo/train.py",
+      "line_start": 8,
+      "line_end": 9,
+      "quote": "for aug in candidates:\n    val_acc = evaluate(model, test_loader, aug)",
+      "claim": "A dedicated low-severity item keeps admin shortcut tests independent.",
+      "concern": "Synthetic fixture only.",
+      "paper_ref": "p. 2",
+      "audit_md_line": 4,
+      "verdict": "keep"
+    }
+  ]
+}

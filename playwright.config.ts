@@ -43,6 +43,12 @@ export default defineConfig({
       DATABASE_URL: databaseUrl,
       NEXT_DIST_DIR: ".next-e2e",
       REGISTRATION_CODE: registrationCode,
+      REVIEW_DATA_ROOT: path.join(
+        process.cwd(),
+        "e2e",
+        "fixtures",
+        "review-data"
+      ),
     },
   },
 })

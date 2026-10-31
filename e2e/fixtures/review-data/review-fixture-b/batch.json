@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "batchId": "review-fixture-b",
+  "label": "Synthetic evidence fixture B",
+  "generatedAt": "2026-10-30T12:00:00.000Z",
+  "contentSha256": "e706ffaf6fd61f377811f2413ffbcf8870717fab4604a81a9a0c65ed20f86079",
+  "protocol": {
+    "name": "evidence-fixture",
+    "version": "1",
+    "path": "docs/fixture.md"
+  },
+  "excluded": [],
+  "papers": [
+    {
+      "id": "1001",
+      "title": "Fixture Paper: Evidence Viewer",
+      "category": "empirical",
+      "auditowlStatus": "audited",
+      "comparisonEligible": true,
+      "scopeNote": null,
+      "dir": "papers/1001",
+      "files": {
+        "overlap": "overlap.json",
+        "agentFindings": "findings.agent.json",
+        "auditowlFindings": "findings.auditowl.json",
+        "paper": "paper.json",
+        "paperText": "paper_text.txt",
+        "paperPdf": "paper.pdf",
+        "agentRun": "run",
+        "auditowlDir": "auditowl"
+      },
+      "code": [
+        {
+          "name": "fixturerepo",
+          "dir": "code/fixturerepo",
+          "role": "repository",
+          "commit": "0123456789abcdef0123456789abcdef01234567"
+        }
+      ],
+      "sha256": {
+        "overlap": "742f844b9cf735dcb5df90b4e825d25419aab382381edd3d1e7f405ee2ef35ed",
+        "agentFindings": "62b78eabd86ae2819ccbb8a095d6f7c2d79e536883dc35968e9190f0805defc5",
+        "auditowlFindings": "add5fe8d02204614d2c7c4c7a2fb5e00a7fbff7a9f2ff8e4c9b373c1ba895095"
+      },
+      "counts": {
+        "clusters": 1,
+        "agentOnly": 4,
+        "auditowlOnly": 2,
+        "related": 1,
+        "bySeverity": {
+          "high": 1,
+          "medium": 1,
+          "low": 6
+        }
+      }
+    },
+    {
+      "id": "1002",
+      "title": "Fixture Paper: Queue and Decisions",
+      "category": "theory",
+      "auditowlStatus": "audited",
+      "comparisonEligible": true,
+      "scopeNote": null,
+      "dir": "papers/1002",
+      "files": {
+        "overlap": "overlap.json",
+        "agentFindings": "findings.agent.json",
+        "auditowlFindings": "findings.auditowl.json",
+        "paper": "paper.json",
+        "paperText": "paper_text.txt",
+        "paperPdf": "paper.pdf",
+        "agentRun": "run",
+        "auditowlDir": "auditowl"
+      },
+      "code": [
+        {
+          "name": "repo2",
+          "dir": "code/repo2",
+          "role": "repository",
+          "commit": "89abcdef0123456789abcdef0123456789abcdef"
+        }
+      ],
+      "sha256": {
+        "overlap": "8a991098984a72d90c4eaf5929b32ed450175e254b69c86aafec07227944227e",
+        "agentFindings": "331adcb2c61f739fb870af8e85f193e93d10adf050960708e8013c4bf98ea64a",
+        "auditowlFindings": "e7e9a6315a0d489d6833d74f5627c2eb410e178cad8b44eaef912aab5c8a3655"
+      },
+      "counts": {
+        "clusters": 1,
+        "agentOnly": 1,
+        "auditowlOnly": 1,
+        "related": 0,
+        "bySeverity": {
+          "high": 1,
+          "medium": 1,
+          "low": 1
+        }
+      }
+    },
+    {
+      "id": "1003",
+      "title": "Fixture Paper: Admin Claim Target",
+      "category": "empirical",
+      "auditowlStatus": "audited",
+      "comparisonEligible": true,
+      "scopeNote": null,
+      "dir": "papers/1003",
+      "files": {
+        "overlap": "overlap.json",
+        "agentFindings": "findings.agent.json",
+        "auditowlFindings": "findings.auditowl.json",
+        "paper": "paper.json",
+        "paperText": "paper_text.txt",
+        "paperPdf": "paper.pdf",
+        "agentRun": "run",
+        "auditowlDir": "auditowl"
+      },
+      "code": [
+        {
+          "name": "repo2",
+          "dir": "code/repo2",
+          "role": "repository",
+          "commit": "89abcdef0123456789abcdef0123456789abcdef"
+        }
+      ],
+      "sha256": {
+        "overlap": "4d5914a2dd72fe4d840da1f76e2236674e129f72461c0a43c2b06ae4e165024b",
+        "agentFindings": "ca71d6885379adee624ce3c9e5a5f4bfce5eb21cca0e667ed31c82bc204ac2e3",
+        "auditowlFindings": "8a639186ec5426bf03fa3fabf332b732772e3892952a86febf26d925517f13c4"
+      },
+      "counts": {
+        "clusters": 0,
+        "agentOnly": 1,
+        "auditowlOnly": 0,
+        "related": 0,
+        "bySeverity": {
+          "high": 0,
+          "medium": 0,
+          "low": 1
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "batchId": "broken-fixture",
+  "label": "Deliberately broken fixture",
+  "generatedAt": "not-a-date",
+  "contentSha256": "not-the-real-fingerprint"
+}

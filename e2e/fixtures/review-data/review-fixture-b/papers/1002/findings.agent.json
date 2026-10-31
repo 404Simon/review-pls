@@ -1,0 +1,48 @@
+{
+  "schema_version": "1",
+  "audit": "run/audit.md",
+  "findings": [
+    {
+      "id": "a1",
+      "id_local": "a1",
+      "category": "empirical",
+      "title": "Validation split overlaps with the training data",
+      "severity": "medium",
+      "status": "finding",
+      "file": "code/repo2/train.py",
+      "line_start": 9,
+      "line_end": 12,
+      "quote": "train_rows = load('train.csv')\nval_rows = load('train.csv')\nassert len(train_rows) == len(val_rows)",
+      "claim": "The validation loader reads the training file.",
+      "concern": "Every validation example was already seen during training.",
+      "resolution": "Use an independent validation split.",
+      "paper_ref": "p. 2",
+      "check_script": "out/check_medium.csv",
+      "audit_md_line": 4,
+      "verification": {
+        "status": "confirmed",
+        "checked": ["out/check_medium.csv"],
+        "note": "The CSV lists the overlapping row count."
+      },
+      "verdict": "keep"
+    },
+    {
+      "id": "a2",
+      "id_local": "a2",
+      "category": "empirical",
+      "title": "Missing ablation for the central component",
+      "severity": "high",
+      "status": "finding",
+      "file": "code/repo2/train.py",
+      "line_start": 15,
+      "line_end": 17,
+      "quote": "model = build_model(use_component=True)\nhistory = fit(model, train_rows)\nprint(history)",
+      "claim": "The central component is never removed.",
+      "concern": "The reported gain cannot be attributed to the component.",
+      "resolution": "Add an ablation without the component.",
+      "paper_ref": "p. 3",
+      "audit_md_line": 5,
+      "verdict": "keep"
+    }
+  ]
+}

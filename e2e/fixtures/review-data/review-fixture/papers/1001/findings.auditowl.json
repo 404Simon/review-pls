@@ -1,0 +1,68 @@
+{
+  "schema_version": "1",
+  "audit": "auditowl/audit.md",
+  "findings": [
+    {
+      "id": "o1",
+      "id_local": "o1",
+      "category": "empirical",
+      "title": "Test statistics leak into augmentation search",
+      "severity": "high",
+      "status": "finding",
+      "file": "train.py",
+      "line_start": 10,
+      "line_end": 14,
+      "quote": "for aug in candidates:\n    val_acc = evaluate(model, test_loader, aug)\n    scores[aug] = val_acc\nbest_aug = max(candidates, key=lambda aug: scores[aug])\nreturn best_aug",
+      "claim": "Test accuracy is used to choose the augmentation.",
+      "concern": "The reported test accuracy is optimistic.",
+      "resolution": "Use a validation split for augmentation selection.",
+      "paper_ref": "p. 3",
+      "check_script": "_audit_code/out/audit_check.json",
+      "audit_md_line": 3,
+      "verification": {
+        "status": "confirmed",
+        "checked": ["_audit_code/out/audit_check.json"],
+        "note": "The JSON records the same selection loop."
+      },
+      "verdict": "keep"
+    },
+    {
+      "id": "o2",
+      "id_local": "o2",
+      "category": "empirical",
+      "title": "No seed control for the reported variance",
+      "severity": "low",
+      "status": "finding",
+      "file": "train.py",
+      "line_start": 7,
+      "line_end": 7,
+      "quote": "random.seed(seed)",
+      "claim": "The seed is set once at the start of training.",
+      "concern": "Later operations are still unseeded.",
+      "paper_ref": "p. 3",
+      "audit_md_line": 4,
+      "verification": {
+        "status": "partial",
+        "checked": ["_audit_code/out/audit_check.json"]
+      },
+      "verdict": "keep"
+    },
+    {
+      "id": "o3",
+      "id_local": "o3",
+      "category": "empirical",
+      "title": "Seeding is inconsistent across runs",
+      "severity": "low",
+      "status": "finding",
+      "file": "train.py",
+      "line_start": 22,
+      "line_end": 22,
+      "quote": "random.seed(seed)",
+      "claim": "The seed is reset after the main training call.",
+      "concern": "This makes repeated runs look more stable than they are.",
+      "paper_ref": "p. 3",
+      "audit_md_line": 5,
+      "verdict": "keep"
+    }
+  ]
+}

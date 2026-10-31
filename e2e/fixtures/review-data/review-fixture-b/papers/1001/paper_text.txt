@@ -1,0 +1,11 @@
+Fixture Paper: Evidence Viewer
+
+Abstract. We study a synthetic training pipeline for the evidence viewer.
+
+2 Method
+
+We select augmentations by evaluating on the test split and keeping the best augmentation. This leaks test statistics into model selection. The selection loop is the one cited by both reviewers.
+
+3 Experiments
+
+We reset the random seed at the start of every run. Results are averaged over three seeds. Checkpoint selection uses the test split as well.

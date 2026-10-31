@@ -1,0 +1,8 @@
+Fixture Paper: Admin Claim Target
+
+Abstract. A tiny synthetic paper with one item used by admin claim tests.
+
+1 Method
+
+The dedicated finding exists only so an admin can release a live claim from
+the global admin table without racing another fixture test.

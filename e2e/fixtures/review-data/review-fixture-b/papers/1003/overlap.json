@@ -1,0 +1,26 @@
+{
+  "schema_version": "1",
+  "paper": {
+    "id": "1003",
+    "title": "Fixture Paper: Admin Claim Target",
+    "category": "empirical",
+    "auditowl_status": "audited",
+    "comparison_eligible": true,
+    "scope_note": null
+  },
+  "matches": [],
+  "auditowl_only": [],
+  "agent_only": [
+    {
+      "id": "a1",
+      "title": "Admin claim release target",
+      "category": "empirical",
+      "severity": "low",
+      "status": "finding",
+      "verdict": "keep",
+      "notes": "Dedicated fixture item for admin claim-release tests."
+    }
+  ],
+  "related_not_matched": [],
+  "caveats": ["Synthetic fixture: one item for admin claim tests."]
+}

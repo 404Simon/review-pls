@@ -1,0 +1,12 @@
+{
+  "checks": [
+    {
+      "reference": "train.py:10-14",
+      "result": "test split used for augmentation selection"
+    },
+    {
+      "reference": "evaluate.py:5-7",
+      "result": "test score selects the checkpoint"
+    }
+  ]
+}
