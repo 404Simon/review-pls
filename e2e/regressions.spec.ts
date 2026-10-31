@@ -7,6 +7,8 @@ import {
   type Page,
 } from "@playwright/test"
 
+import { openDecisionForm } from "./helpers"
+
 const registrationCode = process.env.REGISTRATION_CODE
 const password = "correct-horse-42"
 
@@ -91,6 +93,7 @@ test("release waits for an in-flight autosave and cannot be re-claimed", async (
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
 
   await delayDraftSaves(page)
   await page.getByLabel("Reviewer note").fill("A release race note.")
@@ -124,6 +127,7 @@ test("discard waits for an in-flight autosave and cannot recreate the draft", as
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
   await page.getByLabel("Reviewer note").fill("First saved draft.")
   await page.getByRole("button", { name: "Save draft" }).click()
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
@@ -141,6 +145,7 @@ test("discard waits for an in-flight autosave and cannot recreate the draft", as
     timeout: 10_000,
   })
   await page.reload()
+  await openDecisionForm(page)
   await expect(page.getByLabel("Reviewer note")).toHaveValue("")
 })
 
@@ -155,16 +160,18 @@ test("an internal link flushes the pending draft before navigating", async ({
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
 
   await delayDraftSaves(page, 900)
-  const note = "Flushed before leaving via Back to queue."
+  const note = "Flushed before leaving via the paper link."
   await page.getByLabel("Reviewer note").fill(note)
   // Still inside the 800 ms debounce.
   await page.waitForTimeout(150)
-  await page.getByRole("link", { name: "Back to queue" }).click()
-  await expect(page).toHaveURL(/\/batches\/review-fixture-b\/queue/)
+  await page.getByRole("link", { name: "Paper 1002" }).click()
+  await expect(page).toHaveURL(/\/batches\/review-fixture-b\/papers\/1002/)
 
   await page.goto(url)
+  await openDecisionForm(page)
   await expect(page.getByLabel("Reviewer note")).toHaveValue(note)
 })
 
@@ -179,6 +186,7 @@ test("a shell navigation link also flushes the pending draft", async ({
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
 
   await delayDraftSaves(page, 900)
   const note = "Flushed before leaving via the shell Queue link."
@@ -188,6 +196,7 @@ test("a shell navigation link also flushes the pending draft", async ({
   await expect(page).toHaveURL(/\/batches\/review-fixture-b\/queue/)
 
   await page.goto(url)
+  await openDecisionForm(page)
   await expect(page.getByLabel("Reviewer note")).toHaveValue(note)
 })
 
@@ -202,6 +211,7 @@ test("shortcuts cannot write a decision while a release is in flight", async ({
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
   await page.getByLabel("Reviewer note").fill("Release guard note.")
   await delayServerActions(page)
 
@@ -231,6 +241,7 @@ test("shortcuts cannot write a decision while a release is in flight", async ({
   // The numeric shortcut must not have selected "Invalid" while suspended.
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
   await expect(
     page.getByRole("button", { name: "Confirmed valid", exact: true })
   ).toHaveAttribute("aria-pressed", "true")
@@ -250,6 +261,7 @@ test("shortcuts cannot write a decision while a discard is in flight", async ({
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
   await page.getByLabel("Reviewer note").fill("Draft to discard.")
   await page.getByRole("button", { name: "Save draft" }).click()
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
@@ -272,6 +284,7 @@ test("shortcuts cannot write a decision while a discard is in flight", async ({
     timeout: 10_000,
   })
   await page.reload()
+  await openDecisionForm(page)
   await expect(page.getByLabel("Reviewer note")).toHaveValue("")
   await expect(
     page.getByText("Final decision", { exact: true })
@@ -305,6 +318,7 @@ test("/ and ' flush the pending draft before opening search", async ({
     await page.goto(url)
     await page.getByRole("button", { name: "Reserve" }).click()
     await expect(page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(page)
 
     await delayDraftSaves(page, 900)
     await page.getByLabel("Reviewer note").fill(entry.note)
@@ -317,6 +331,7 @@ test("/ and ' flush the pending draft before opening search", async ({
     )
 
     await page.goto(url)
+    await openDecisionForm(page)
     await expect(page.getByLabel("Reviewer note")).toHaveValue(entry.note)
   }
 })
@@ -494,6 +509,5 @@ test("navigation controls are links, not buttons", async ({
   ).toHaveCount(0)
 
   await page.goto(item("review-fixture", "cluster:1001:M01"))
-  await expect(page.getByRole("link", { name: "Back to queue" })).toBeVisible()
   await expect(page.getByRole("link", { name: "Paper 1001" })).toBeVisible()
 })

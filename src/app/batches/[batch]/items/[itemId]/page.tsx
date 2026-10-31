@@ -26,6 +26,7 @@ import {
   queuePath,
   withQuery,
 } from "@/lib/review/filters"
+import { evidenceFileUrl } from "@/lib/review/evidence"
 import { SEVERITY_RANK, parseItemIdParam } from "@/lib/review/ids"
 import { loadBatchReviewView } from "@/lib/review/ui-data"
 import { joinWithin } from "@/lib/review/paths"
@@ -275,7 +276,13 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
       item={item}
       paperTitle={paper.manifest.title}
       paperHref={paperHref}
-      queueHref={queueHref}
+      paperPdfUrl={evidenceFileUrl(
+        batchId,
+        parsed.paperId,
+        paper.manifest.files.paperPdf
+      )}
+      paperFilesBase={`${paperPath(batchId, parsed.paperId)}/files`}
+      repositories={paper.manifest.code}
       focusSearchHref={focusSearchHref}
       returnHref={fromQueue ? queueHref : paperHref}
       serverNow={view.now}

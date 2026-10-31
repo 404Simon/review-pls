@@ -8,6 +8,8 @@ import {
   type Page,
 } from "@playwright/test"
 
+import { openDecisionForm } from "./helpers"
+
 const registrationCode = process.env.REGISTRATION_CODE
 const password = "correct-horse-42"
 
@@ -148,6 +150,7 @@ test("reserves, closes a cluster decision and makes it read-only", async ({
 
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
 
   await page
     .getByLabel("Reviewer note")
@@ -175,6 +178,7 @@ test("unsure releases the claim and the next reviewer sees the note", async ({
     await first.page.goto(url)
     await first.page.getByRole("button", { name: "Reserve" }).click()
     await expect(first.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(first.page)
 
     const note = "The line range needs a second look."
     await first.page.getByLabel("Reviewer note").fill(note)
@@ -204,11 +208,14 @@ test("autosaved draft survives a reload", async ({ page, request }) => {
   await page.goto(url)
 
   await page.getByRole("button", { name: "Reserve" }).click()
+  await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
   const note = "Draft note survives the reload."
   await page.getByLabel("Reviewer note").fill(note)
   await expect(page.getByText("Saved", { exact: true })).toBeVisible()
 
   await page.reload()
+  await openDecisionForm(page)
   await expect(page.getByLabel("Reviewer note")).toHaveValue(note)
   await expect(page.getByText("Reserved by you")).toBeVisible()
 })
@@ -268,7 +275,7 @@ test("keyboard help opens and j moves to the next item", async ({
   const url = item("cluster:1002:M01")
   expect((await page.request.get(url)).status()).toBe(200)
   await page.goto(url)
-  await expect(page.getByText("LLM comparator")).toBeVisible()
+  await expect(page.getByText("Comparator proposal").first()).toBeVisible()
   // Let the client shortcut listener hydrate before pressing a shortcut.
   await page.waitForTimeout(750)
 
@@ -321,7 +328,9 @@ test("shortcuts do nothing behind the shortcut help dialog", async ({
     page.getByRole("heading", { name: "Keyboard shortcuts" })
   ).toHaveCount(0)
 
-  // After closing the dialog the same key works again.
+  // After closing the help dialog, open the decision popover: the same key
+  // works again inside it.
+  await openDecisionForm(page)
   await page.keyboard.press("s")
   await expect(page.getByText(/Decision saved/)).toBeVisible()
 })
@@ -334,7 +343,7 @@ test("tab-scoped j navigation stays inside the Matches tab", async ({
   const url = `${item("cluster:1001:M01")}?from=paper&tab=matches`
   expect((await page.request.get(url)).status()).toBe(200)
   await page.goto(url)
-  await expect(page.getByText("LLM comparator")).toBeVisible()
+  await expect(page.getByText("Comparator proposal").first()).toBeVisible()
   await page.waitForTimeout(750)
 
   await page.keyboard.press("j")

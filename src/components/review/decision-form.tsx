@@ -12,6 +12,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useId,
   useImperativeHandle,
   useRef,
   useState,
@@ -478,6 +479,8 @@ export interface DecisionFormProps {
   returnHref: string
   linkCandidates: readonly LinkCandidate[]
   actionRef?: RefObject<DecisionFormActions | null>
+  /** Render without the outer card ring, e.g. inside a dialog. */
+  embedded?: boolean
 }
 
 export function DecisionForm({
@@ -489,6 +492,7 @@ export function DecisionForm({
   returnHref,
   linkCandidates,
   actionRef,
+  embedded = false,
 }: DecisionFormProps) {
   const router = useRouter()
   const [form, setForm] = useState<FormState>(() => formFromDraft(item, draft))
@@ -879,8 +883,8 @@ export function DecisionForm({
 
   if (!canEdit || suspendedForDraft) {
     return (
-      <Card>
-        <CardHeader>
+      <Card className={embedded ? "ring-0" : undefined}>
+        <CardHeader className={embedded ? "pr-10" : undefined}>
           <CardTitle className="flex items-center gap-2">
             <ShieldQuestion data-icon="inline-start" />
             Your decision
@@ -913,15 +917,14 @@ export function DecisionForm({
     (item.kind === "agent_only" && form.verdict === "not_checked")
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className={embedded ? "ring-0" : undefined}>
+      <CardHeader className={embedded ? "pr-10" : undefined}>
         <CardTitle className="flex items-center gap-2">
           <PencilLine data-icon="inline-start" />
           Your decision
         </CardTitle>
         <CardDescription>
-          The comparator is a hint. Record the verdict the evidence supports;
-          drafts autosave after you pause.
+          The comparator is a hint. Record the verdict the evidence supports.
         </CardDescription>
         <div
           className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
@@ -1198,57 +1201,62 @@ export function DecisionForm({
             disabled={finalPending}
           >
             <StickyNote data-icon="inline-start" />
-            Mark unsure & release
+            Mark unsure
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => void commit("draft")}
-            disabled={finalPending}
-          >
-            Save draft
-          </Button>
-          {draft ? (
-            <AlertDialog>
-              <AlertDialogTrigger
-                render={<Button variant="ghost" disabled={discardPending} />}
-              >
-                Discard draft
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    The saved draft is deleted. Final and unsure history is not
-                    affected.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    variant="destructive"
-                    disabled={discardPending}
-                    onClick={() => void discardDraft()}
-                  >
-                    Discard draft
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : null}
-          <span className="ml-auto text-xs text-muted-foreground">
-            {item.kind === "cluster" ? (
-              <>Shortcuts: 1–3 verdict · s save · u unsure</>
-            ) : (
-              <>Shortcuts: 1–5 verdict · s save · u unsure</>
-            )}
-          </span>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Saving a final decision closes the item and releases your claim. Your
-          last autosave was{" "}
-          {draft ? formatTimestamp(draft.record.updatedAt) : "not yet saved"}.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+          <p className="text-xs text-muted-foreground">
+            {draft
+              ? `Draft autosaved ${formatTimestamp(draft.record.updatedAt)}.`
+              : "Drafts autosave after you pause."}{" "}
+            Saving closes the item and releases your claim.
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void commit("draft")}
+              disabled={finalPending}
+            >
+              Save draft
+            </Button>
+            {draft ? (
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={discardPending}
+                    />
+                  }
+                >
+                  Discard draft
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Discard this draft?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      The saved draft is deleted. Final and unsure history is
+                      not affected.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={discardPending}
+                      onClick={() => void discardDraft()}
+                    >
+                      Discard draft
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+          </div>
+        </div>
       </CardContent>
     </Card>
   )
@@ -1267,10 +1275,20 @@ function LabeledSelect<T extends string>({
   options: readonly T[]
   emptyLabel: string
 }) {
+  const id = useId()
+  const items = [
+    { value: "none", label: emptyLabel },
+    ...options.map((option) => ({
+      value: option,
+      label: humanize(option),
+    })),
+  ]
+
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+    <Field>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
+        items={items}
         value={value === "" ? "none" : value}
         onValueChange={(next) => {
           if (typeof next === "string") {
@@ -1278,18 +1296,17 @@ function LabeledSelect<T extends string>({
           }
         }}
       >
-        <SelectTrigger aria-label={label} className={SELECT_CLASS}>
+        <SelectTrigger id={id} className={SELECT_CLASS}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">{emptyLabel}</SelectItem>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {humanize(option)}
+        <SelectContent align="start" alignItemWithTrigger={false}>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item.value}>
+              {item.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-    </div>
+    </Field>
   )
 }

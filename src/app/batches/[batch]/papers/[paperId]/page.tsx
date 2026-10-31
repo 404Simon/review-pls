@@ -1,34 +1,21 @@
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ExternalLink,
-  FileText,
-  Folder,
-  GitBranch,
-} from "lucide-react"
+import { AlertTriangle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
 import { DataErrorState } from "@/components/review/data-error"
 import { ItemList } from "@/components/review/item-list"
+import { PaperActions } from "@/components/review/paper-actions"
 import { StatsCards } from "@/components/review/stats-cards"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   normalizeParams,
   parseItemTab,
   parseReviewFilters,
 } from "@/lib/review/filters"
 import { evidenceFileUrl } from "@/lib/review/evidence"
-import { githubTreeUrl } from "@/lib/review/github"
 import {
   isMissingReviewData,
   loadPaper,
@@ -150,34 +137,28 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
       </div>
 
       <header className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span>{paper.manifest.category}</span>
-              <span aria-hidden>·</span>
-              <span>AuditOwl {paper.manifest.auditowlStatus}</span>
-              <span aria-hidden>·</span>
-              <span>
-                {paper.counts.total} item
-                {paper.counts.total === 1 ? "" : "s"}
-              </span>
-              {paper.manifest.comparisonEligible ? null : (
-                <Badge variant="destructive">Not comparison eligible</Badge>
-              )}
-            </div>
-            <h1 className="max-w-5xl font-heading text-2xl font-medium text-balance sm:text-3xl">
-              {paper.manifest.title}
-            </h1>
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span>{paper.manifest.category}</span>
+            <span aria-hidden>·</span>
+            <span>AuditOwl {paper.manifest.auditowlStatus}</span>
+            <span aria-hidden>·</span>
+            <span>
+              {paper.counts.total} item
+              {paper.counts.total === 1 ? "" : "s"}
+            </span>
+            {paper.manifest.comparisonEligible ? null : (
+              <Badge variant="destructive">Not comparison eligible</Badge>
+            )}
           </div>
-          <a
-            href={`${paperPdfUrl}#zoom=page-width`}
-            target="_blank"
-            rel="noreferrer noopener"
-            className={buttonVariants({ size: "sm" })}
-          >
-            <FileText data-icon="inline-start" />
-            Open PDF
-          </a>
+          <h1 className="max-w-5xl font-heading text-2xl font-medium text-balance sm:text-3xl">
+            {paper.manifest.title}
+          </h1>
+          <PaperActions
+            paperPdfUrl={paperPdfUrl}
+            repositories={paper.manifest.code}
+            filesBase={`${basePath}/files`}
+          />
         </div>
 
         {caveats.length > 0 ||
@@ -225,108 +206,6 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
         scopeLabel="All items on this paper."
         completionLabel="Paper completion"
       />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GitBranch data-icon="inline-start" />
-            Repositories
-          </CardTitle>
-          <CardDescription>
-            GitHub links open the reviewed commit. Local snapshots open in the
-            file browser.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          {paper.manifest.code.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No code repositories were bundled with this paper. Evidence will
-              fall back to checks, paper text and reports.
-            </p>
-          ) : (
-            paper.manifest.code.map((repo) => {
-              const githubRef = {
-                name: repo.name,
-                url: repo.url,
-                commit: repo.commit,
-              }
-              const githubUrl =
-                repo.role === "repository" ? githubTreeUrl(githubRef) : null
-              const filesUrl = `${basePath}/files/${repo.dir
-                .split("/")
-                .map(encodeURIComponent)
-                .join("/")}`
-              const shortCommit = repo.commit?.slice(0, 12)
-              return (
-                <div
-                  key={repo.name}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
-                >
-                  <div className="flex min-w-0 flex-col">
-                    {githubUrl ? (
-                      <a
-                        href={githubUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        title={`Open on GitHub at ${shortCommit}`}
-                        aria-label={`Open ${repo.name} on GitHub at ${shortCommit}`}
-                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
-                      >
-                        <GitBranch
-                          data-icon="inline-start"
-                          className="shrink-0"
-                        />
-                        <span className="truncate">{repo.name}</span>
-                        <ExternalLink
-                          data-icon="inline-end"
-                          className="size-3 shrink-0 text-muted-foreground"
-                        />
-                      </a>
-                    ) : (
-                      <Link
-                        href={filesUrl}
-                        title={`Browse ${repo.name} files`}
-                        aria-label={`Browse ${repo.name} files`}
-                        className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
-                      >
-                        <Folder data-icon="inline-start" className="shrink-0" />
-                        <span className="truncate">{repo.name}</span>
-                      </Link>
-                    )}
-                    <span className="font-mono text-xs break-all text-muted-foreground">
-                      {repo.dir}
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{repo.role}</Badge>
-                    {githubUrl && shortCommit ? (
-                      <Badge
-                        variant="secondary"
-                        className="font-mono"
-                        render={
-                          <a
-                            href={githubUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            title={`Open tree at ${repo.commit} on GitHub`}
-                            aria-label={`Open tree at ${shortCommit} on GitHub`}
-                          />
-                        }
-                      >
-                        {shortCommit}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="font-mono">
-                        {repo.commit ? repo.commit.slice(0, 12) : "no revision"}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
 
       {revisionMismatches.length > 0 ? (
         <Alert variant="destructive">

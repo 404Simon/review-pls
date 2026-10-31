@@ -10,6 +10,15 @@ if (!databaseUrl) {
 
 const databasePath = path.resolve(databaseUrl)
 
+// The Playwright server uses an isolated Next dist directory. Turbopack can
+// leave stale chunks behind when an earlier dev server was killed mid-compile,
+// so each e2e run starts from a clean cache. Never touch the normal `.next`
+// directory used by `pnpm dev`.
+const distDir = path.resolve(process.env.NEXT_DIST_DIR ?? ".next-e2e")
+if (distDir !== path.resolve(".next")) {
+  rmSync(distDir, { recursive: true, force: true })
+}
+
 mkdirSync(path.dirname(databasePath), { recursive: true })
 
 for (const suffix of ["", "-shm", "-wal"]) {

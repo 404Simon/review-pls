@@ -21,7 +21,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Playwright talks to one shared `next dev` server. More workers compile and
+  // stream routes concurrently, which makes short assertions flaky without
+  // making the suite meaningfully faster. CI stays fully serial.
+  workers: process.env.CI ? 1 : 2,
   reporter: "list",
   use: {
     baseURL,

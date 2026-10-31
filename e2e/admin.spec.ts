@@ -5,6 +5,8 @@ import path from "node:path"
 import { expect, test, type Browser, type Page } from "@playwright/test"
 import Database from "better-sqlite3"
 
+import { openDecisionForm } from "./helpers"
+
 const registrationCode = process.env.REGISTRATION_CODE
 const password = "correct-horse-42"
 
@@ -113,6 +115,7 @@ async function closeItem(page: Page, id: string, note: string) {
   await page.goto(item(id))
   await page.getByRole("button", { name: "Reserve" }).click()
   await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
   await page.getByLabel("Reviewer note").fill(note)
   await page.getByRole("button", { name: "Save & close" }).click()
   await expect(page.getByText(/Decision saved/)).toBeVisible()
@@ -181,6 +184,7 @@ test("an admin self-release is not re-claimed by a pending autosave", async ({
     await admin.page.goto(url)
     await admin.page.getByRole("button", { name: "Reserve" }).click()
     await expect(admin.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(admin.page)
 
     await delayDraftSaves(admin.page)
     await admin.page.getByLabel("Reviewer note").fill("Must not autosave.")
@@ -204,6 +208,7 @@ test("an admin self-release is not re-claimed by a pending autosave", async ({
     // Reserve again: an empty note proves the pending autosave never landed.
     await admin.page.getByRole("button", { name: "Reserve" }).click()
     await expect(admin.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(admin.page)
     await expect(admin.page.getByLabel("Reviewer note")).toHaveValue("")
   } finally {
     await admin.context.close()
@@ -290,6 +295,7 @@ test("an admin reopens a closed item and the history keeps the decision", async 
     ).toBeVisible()
 
     await admin.page.reload()
+    await admin.page.getByText("Decision history").click()
     await expect(admin.page.getByText("Reopened")).toBeVisible()
     await expect(
       admin.page.getByText("Final decision", { exact: true })
@@ -299,6 +305,7 @@ test("an admin reopens a closed item and the history keeps the decision", async 
     // draft payload in the form.
     await admin.page.getByRole("button", { name: "Reserve" }).click()
     await expect(admin.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(admin.page)
     await expect(admin.page.getByLabel("Reviewer note")).toHaveValue(
       "The caption mismatch is presentation-only."
     )
@@ -400,6 +407,7 @@ test("the admin page is blocked for reviewers and shows every admin surface", as
     await reviewer.page.goto(unsureUrl)
     await reviewer.page.getByRole("button", { name: "Reserve" }).click()
     await expect(reviewer.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(reviewer.page)
     await reviewer.page.getByLabel("Reviewer note").fill(note)
     await reviewer.page
       .getByRole("button", { name: "Mark unsure and release the claim" })
@@ -544,6 +552,7 @@ test("admin exports contain closed decisions but never drafts", async ({
     await reviewer.page.goto(closedUrl)
     await reviewer.page.getByRole("button", { name: "Reserve" }).click()
     await expect(reviewer.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(reviewer.page)
     await reviewer.page
       .getByLabel("Reviewer note")
       .fill("Final export fixture decision.")

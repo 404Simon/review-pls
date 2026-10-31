@@ -8,7 +8,7 @@ import {
   StickyNote,
   UserRound,
 } from "lucide-react"
-import { useCallback, useSyncExternalStore } from "react"
+import { useCallback, useSyncExternalStore, type ReactNode } from "react"
 
 import { StatusBadge } from "@/components/review/status-badge"
 import {
@@ -94,6 +94,8 @@ export interface ClaimBarProps {
   pending: boolean
   onClaim: () => void
   onRelease: () => void
+  /** Popover trigger rendered next to Release for the current claimant. */
+  decisionTrigger?: ReactNode
 }
 
 export function ClaimBar({
@@ -109,6 +111,7 @@ export function ClaimBar({
   pending,
   onClaim,
   onRelease,
+  decisionTrigger,
 }: ClaimBarProps) {
   const now = useNow(serverNow)
 
@@ -201,6 +204,9 @@ export function ClaimBar({
               Reserve
             </Button>
           ) : null}
+          {status !== "closed" && mine && decisionTrigger
+            ? decisionTrigger
+            : null}
           {status !== "closed" && mine ? (
             <AlertDialog>
               <AlertDialogTrigger

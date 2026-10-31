@@ -3,10 +3,13 @@
 import {
   ArrowLeft,
   ArrowRight,
-  ClipboardList,
+  Bot,
   FileText,
+  History,
   Keyboard,
+  PencilLine,
   ShieldCheck,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -15,7 +18,7 @@ import { toast } from "sonner"
 
 import { AdminItemActions } from "@/components/review/admin-item-actions"
 import { ClaimBar } from "@/components/review/claim-bar"
-import { ComparatorPanel } from "@/components/review/comparator-panel"
+import { ComparatorProposal } from "@/components/review/comparator-proposal"
 import {
   DecisionForm,
   type DecisionFormActions,
@@ -24,11 +27,13 @@ import {
   DecisionHistory,
   type DecisionHistoryEntry,
 } from "@/components/review/decision-history"
+import { Disclosure } from "@/components/review/disclosure"
 import { EvidencePanel } from "@/components/review/evidence-panel"
+import { FindingOverview } from "@/components/review/finding-overview"
 import type { LinkCandidate } from "@/components/review/link-picker"
+import { PaperActions } from "@/components/review/paper-actions"
 import { SeverityBadge } from "@/components/review/severity-badge"
 import { ShortcutHelp } from "@/components/review/shortcut-help"
-import { StatusBadge } from "@/components/review/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -38,6 +43,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Popover,
+  PopoverClose,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import type { ItemReviewState } from "@/lib/review/decisions"
 import {
   claimItemAction,
@@ -46,9 +57,14 @@ import {
 } from "@/lib/review/actions"
 import { describeDecision } from "@/lib/review/decision-format"
 import type { EvidenceBundle } from "@/lib/review/evidence"
-import { formatItemKind, formatTimestamp } from "@/lib/review/format"
-import { isSearchKey, isShortcutSuppressed } from "@/lib/review/shortcuts"
-import type { ReviewItem } from "@/lib/review/types"
+import { formatItemKind } from "@/lib/review/format"
+import {
+  hasOpenOverlay,
+  isSearchKey,
+  isShortcutSuppressed,
+  isTypingTarget,
+} from "@/lib/review/shortcuts"
+import type { CodeRepoManifest, ReviewItem } from "@/lib/review/types"
 
 function isInternalAppPath(pathname: string): boolean {
   return (
@@ -61,11 +77,9 @@ function isInternalAppPath(pathname: string): boolean {
 function ClosedDecisionCard({
   item,
   state,
-  reviewerNames,
 }: {
   item: ReviewItem
   state: ItemReviewState
-  reviewerNames: Record<string, string>
 }) {
   if (!state.finalDecision) {
     return null
@@ -74,8 +88,6 @@ function ClosedDecisionCard({
     item.kind,
     state.finalDecision.record.payload
   )
-  const reviewer =
-    reviewerNames[state.finalDecision.record.userId] ?? "another reviewer"
 
   return (
     <Card>
@@ -85,20 +97,13 @@ function ClosedDecisionCard({
           Final decision
         </CardTitle>
         <CardDescription>
-          Closed by {reviewer} at{" "}
-          {formatTimestamp(state.finalDecision.record.updatedAt)}. This item is
-          read-only for reviewers.
+          Read-only for reviewers. An admin can reopen the item.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge>{summary.verdict}</Badge>
-          {state.finalDecision.stale ? (
-            <Badge variant="destructive">Source changed since decision</Badge>
-          ) : null}
-        </div>
+        <Badge>{summary.verdict}</Badge>
         {summary.details.length > 0 ? (
-          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
             {summary.details.map((detail) => (
               <li key={detail}>{detail}</li>
             ))}
@@ -123,7 +128,9 @@ export interface ItemReviewProps {
   item: ReviewItem
   paperTitle: string
   paperHref: string
-  queueHref: string
+  paperPdfUrl: string
+  paperFilesBase: string
+  repositories: readonly CodeRepoManifest[]
   returnHref: string
   focusSearchHref: string
   state: ItemReviewState
@@ -145,7 +152,9 @@ export function ItemReview({
   item,
   paperTitle,
   paperHref,
-  queueHref,
+  paperPdfUrl,
+  paperFilesBase,
+  repositories,
   returnHref,
   focusSearchHref,
   state,
@@ -163,6 +172,7 @@ export function ItemReview({
   const router = useRouter()
   const [pending, setPending] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [decisionOpen, setDecisionOpen] = useState(false)
   const [extendedLease, setExtendedLease] = useState<{
     claimId: string
     expiresAt: number
@@ -284,7 +294,10 @@ export function ItemReview({
   }, [claim?.userId, currentUserId, router, status])
 
   const canEdit = status !== "closed" && claim?.userId === currentUserId
-  const isStale = finalDecision?.stale === true || draft?.stale === true
+
+  const handleDecisionOpenChange = useCallback((open: boolean) => {
+    setDecisionOpen(open)
+  }, [])
 
   const navigateTo = useCallback(
     async (href: string) => {
@@ -354,8 +367,62 @@ export function ItemReview({
   }, [canEdit, router])
 
   useEffect(() => {
+    function nonDecisionOverlayOpen(): boolean {
+      return hasOpenOverlay((selector) =>
+        Array.from(document.querySelectorAll(selector)).some(
+          (element) => !element.hasAttribute("data-decision-popover")
+        )
+          ? selector
+          : null
+      )
+    }
+
     function onKeyDown(event: KeyboardEvent) {
-      if (isShortcutSuppressed(event) || helpOpen) {
+      if (helpOpen) {
+        return
+      }
+
+      if (decisionOpen) {
+        // The decision dialog owns the keyboard. Its verdict/save/unsure
+        // shortcuts stay available even though dialogs normally suppress the
+        // page shortcuts.
+        if (
+          event.defaultPrevented ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.altKey ||
+          isTypingTarget(event.target) ||
+          nonDecisionOverlayOpen()
+        ) {
+          return
+        }
+        if (/^[1-5]$/.test(event.key)) {
+          const handled = canEdit
+            ? (decisionActions.current?.chooseVerdict(Number(event.key) - 1) ??
+              false)
+            : false
+          if (handled) {
+            event.preventDefault()
+          }
+          return
+        }
+        if (event.key === "s") {
+          if (canEdit && decisionActions.current) {
+            event.preventDefault()
+            decisionActions.current.save()
+          }
+          return
+        }
+        if (event.key === "u") {
+          if (canEdit && decisionActions.current) {
+            event.preventDefault()
+            decisionActions.current.markUnsure()
+          }
+        }
+        return
+      }
+
+      if (isShortcutSuppressed(event)) {
         return
       }
       if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
@@ -433,6 +500,7 @@ export function ItemReview({
     canEdit,
     claim?.userId,
     currentUserId,
+    decisionOpen,
     focusSearchHref,
     helpOpen,
     navigateTo,
@@ -444,8 +512,8 @@ export function ItemReview({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           <Link
             href={paperHref}
             className={buttonVariants({ variant: "ghost", size: "xs" })}
@@ -498,44 +566,86 @@ export function ItemReview({
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{formatItemKind(item.kind)}</Badge>
           <SeverityBadge severity={item.severity} />
-          <StatusBadge status={status} />
-          {isStale ? <Badge variant="destructive">Stale source</Badge> : null}
-          <span className="font-mono text-xs text-muted-foreground">
-            {item.ref}
-          </span>
         </div>
-        <h1 className="max-w-5xl font-heading text-2xl font-medium text-balance sm:text-3xl">
+        <h1 className="max-w-4xl font-heading text-lg font-medium text-balance sm:text-xl">
           {item.title}
         </h1>
-        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <Link
+          href={paperHref}
+          className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+        >
           <FileText data-icon="inline-start" />
           {paperTitle}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href={queueHref}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <ClipboardList data-icon="inline-start" />
-            Back to queue
-          </Link>
-        </div>
+        </Link>
+        <PaperActions
+          paperPdfUrl={paperPdfUrl}
+          repositories={repositories}
+          filesBase={paperFilesBase}
+        />
       </header>
 
-      <ClaimBar
-        item={item}
-        status={status}
-        claim={claim}
-        finalDecision={finalDecision}
-        latestUnsure={latestUnsure}
-        unsureHistory={state.unsureHistory}
-        serverNow={serverNow}
-        currentUserId={currentUserId}
-        reviewerNames={reviewerNames}
-        pending={pending}
-        onClaim={() => void claimItem()}
-        onRelease={() => void releaseItem()}
-      />
+      <Popover
+        open={decisionOpen && canEdit}
+        onOpenChange={handleDecisionOpenChange}
+      >
+        <ClaimBar
+          item={item}
+          status={status}
+          claim={claim}
+          finalDecision={finalDecision}
+          latestUnsure={latestUnsure}
+          unsureHistory={state.unsureHistory}
+          serverNow={serverNow}
+          currentUserId={currentUserId}
+          reviewerNames={reviewerNames}
+          pending={pending}
+          onClaim={() => void claimItem()}
+          onRelease={() => void releaseItem()}
+          decisionTrigger={
+            <PopoverTrigger render={<Button size="sm" disabled={pending} />}>
+              <PencilLine data-icon="inline-start" />
+              Your decision
+            </PopoverTrigger>
+          }
+        />
+        <PopoverContent
+          data-decision-popover
+          aria-label="Your decision"
+          align="end"
+          side="bottom"
+          sideOffset={8}
+          collisionAvoidance={{ side: "shift", align: "shift" }}
+          keepMounted
+          className="max-h-(--available-height) w-[min(44rem,calc(100vw-2rem))] overflow-y-auto p-0"
+        >
+          <PopoverClose
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="absolute top-2 right-2 z-10"
+              />
+            }
+          >
+            <X />
+            <span className="sr-only">Close</span>
+          </PopoverClose>
+          <DecisionForm
+            // A server refresh that changes editability or the draft remounts
+            // the form, which clears a completed release/discard lock.
+            key={`${item.id}:${canEdit ? "edit" : "read"}:${claim?.id ?? "none"}`}
+            embedded
+            item={item}
+            batchId={batchId}
+            draft={draft}
+            canEdit={canEdit}
+            nextHref={saveNextHref ?? nextItemHref}
+            returnHref={returnHref}
+            linkCandidates={linkCandidates}
+            actionRef={decisionActions}
+          />
+        </PopoverContent>
+      </Popover>
 
       {role === "admin" ? (
         <AdminItemActions
@@ -557,50 +667,37 @@ export function ItemReview({
         />
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-        <div className="flex min-w-0 flex-col gap-6">
-          <ComparatorPanel item={item} />
+      <div className="flex flex-col gap-6">
+        <FindingOverview item={item} />
 
-          {status === "closed" ? (
-            <ClosedDecisionCard
-              item={item}
-              state={{ ...state, finalDecision }}
-              reviewerNames={reviewerNames}
-            />
-          ) : (
-            <DecisionForm
-              // A server refresh that changes editability or the draft remounts
-              // the form, which clears a completed release/discard lock.
-              key={`${item.id}:${canEdit ? "edit" : "read"}:${claim?.id ?? "none"}`}
-              item={item}
-              batchId={batchId}
-              draft={draft}
-              canEdit={canEdit}
-              nextHref={saveNextHref ?? nextItemHref}
-              returnHref={returnHref}
-              linkCandidates={linkCandidates}
-              actionRef={decisionActions}
-            />
-          )}
+        {status === "closed" ? (
+          <ClosedDecisionCard item={item} state={{ ...state, finalDecision }} />
+        ) : null}
 
-          <DecisionHistory kind={item.kind} entries={history} />
-        </div>
-
-        <aside
+        <section
           id="evidence"
           tabIndex={-1}
-          className="min-w-0 scroll-mt-24 outline-none"
+          className="flex scroll-mt-24 flex-col gap-3 outline-none"
         >
-          <div className="flex flex-col gap-3 lg:sticky lg:top-[5.5rem] lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto lg:pr-1">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-heading text-lg font-medium">Evidence</h2>
-              <span className="text-xs text-muted-foreground">
-                Code, checks, paper and reports · press e
-              </span>
-            </div>
-            <EvidencePanel bundle={evidence} />
-          </div>
-        </aside>
+          <h2 className="font-heading text-lg font-medium">Evidence</h2>
+          <EvidencePanel bundle={evidence} />
+        </section>
+
+        <Disclosure
+          title="Comparator proposal"
+          description="Proposed labels and verification from the automated comparator."
+          icon={Bot}
+        >
+          <ComparatorProposal item={item} />
+        </Disclosure>
+
+        <Disclosure
+          title="Decision history"
+          description="Final, unsure and reopen events, newest first."
+          icon={History}
+        >
+          <DecisionHistory kind={item.kind} entries={history} />
+        </Disclosure>
       </div>
 
       <ShortcutHelp open={helpOpen} onOpenChange={setHelpOpen} />

@@ -267,9 +267,9 @@ test("paper page links repositories to GitHub at the reviewed commit", async ({
   await signedInPage(page, request)
   await page.goto("/batches/review-fixture/papers/1001")
 
-  const repoLink = page
-    .getByRole("link", { name: /fixturerepo on GitHub at 0123456789ab/ })
-    .first()
+  const repoLink = page.getByRole("link", {
+    name: "Open fixturerepo on GitHub",
+  })
   await expect(repoLink).toBeVisible()
   await expect(repoLink).toHaveAttribute(
     "href",
@@ -277,16 +277,6 @@ test("paper page links repositories to GitHub at the reviewed commit", async ({
   )
   await expect(repoLink).toHaveAttribute("target", "_blank")
   await expect(repoLink).toHaveAttribute("rel", "noreferrer noopener")
-
-  const commitLink = page.getByRole("link", {
-    name: "Open tree at 0123456789ab on GitHub",
-  })
-  await expect(commitLink).toHaveAttribute(
-    "href",
-    "https://github.com/example/fixturerepo/tree/0123456789abcdef0123456789abcdef01234567"
-  )
-  await expect(commitLink).toHaveAttribute("target", "_blank")
-  await expect(commitLink).toHaveAttribute("rel", "noreferrer noopener")
 })
 
 test("paper page links the mounted paper PDF", async ({ page, request }) => {
@@ -330,8 +320,6 @@ test("paper page links non-GitHub code entries to the local file browser", async
     "href",
     "/batches/review-fixture-b/papers/1003/files/code/workspace"
   )
-  await expect(page.getByText("no revision").first()).toBeVisible()
-  await expect(page.getByRole("link", { name: /no revision/ })).toHaveCount(0)
 
   await page.getByRole("link", { name: "Browse supplement files" }).click()
   await expect(
@@ -359,7 +347,7 @@ test("renders code, checks, paper and report evidence", async ({
       level: 1,
     })
   ).toBeVisible()
-  await expect(page.getByText("LLM comparator")).toBeVisible()
+  await expect(page.getByText("Comparator proposal").first()).toBeVisible()
   await expect(page.getByRole("tab", { name: /Code/ })).toBeVisible()
 
   await expect(page.getByText("quote exact").first()).toBeVisible()
@@ -409,6 +397,39 @@ test("renders code, checks, paper and report evidence", async ({
   await page.getByRole("tab", { name: /Reports/ }).click()
   await expect(page.getByText("Finding a1:").first()).toBeVisible()
   await expect(page.getByText("Open full report").first()).toBeVisible()
+})
+
+test("item page links the paper PDF and repositories", async ({
+  page,
+  request,
+}) => {
+  await signedInPage(page, request)
+  expect((await page.request.get(itemUrl)).status()).toBe(200)
+  await page.goto(itemUrl)
+
+  const pdfLink = page.getByRole("link", { name: "Open PDF" })
+  await expect(pdfLink).toHaveAttribute("href", `${pdfUrl}#zoom=page-width`)
+  await expect(pdfLink).toHaveAttribute("target", "_blank")
+  await expect(pdfLink).toHaveAttribute("rel", "noreferrer noopener")
+
+  const repoLink = page.getByRole("link", {
+    name: "Open fixturerepo on GitHub",
+  })
+  await expect(repoLink).toHaveAttribute(
+    "href",
+    "https://github.com/example/fixturerepo/tree/0123456789abcdef0123456789abcdef01234567"
+  )
+  await expect(repoLink).toHaveAttribute("target", "_blank")
+  await expect(repoLink).toHaveAttribute("rel", "noreferrer noopener")
+
+  // Non-GitHub code entries fall back to the mounted file browser.
+  await page.goto("/batches/review-fixture-b/items/agent_only:1003:a1")
+  await expect(
+    page.getByRole("link", { name: "Browse supplement files" })
+  ).toHaveAttribute(
+    "href",
+    "/batches/review-fixture-b/papers/1003/files/code/supplement"
+  )
 })
 
 test("missing code anchors link to the repository tree, not a blob", async ({

@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CheckView } from "@/components/review/check-view"
 import { CodeView } from "@/components/review/code-view"
+import { Disclosure } from "@/components/review/disclosure"
 import {
   MissingPaperPdf,
   PaperPdfViewer,
@@ -91,40 +92,43 @@ export function EvidencePanel({ bundle }: { bundle: EvidenceBundle }) {
           </TabsTrigger>
         </TabsList>
 
-        <div className="flex flex-wrap gap-2">
-          <Badge variant={healthVariant(health.codeResolved, health.codeTotal)}>
-            code {health.codeResolved}/{health.codeTotal}
-          </Badge>
-          <Badge
-            variant={
-              health.quoteMissing > 0
-                ? "destructive"
-                : health.quoteFuzzy > 0
-                  ? "outline"
-                  : "secondary"
-            }
-          >
-            quotes {health.quoteExact} exact · {health.quoteFuzzy} fuzzy ·{" "}
-            {health.quoteMissing} missing
-          </Badge>
-          <Badge
-            variant={healthVariant(health.checksResolved, health.checksTotal)}
-          >
-            checks {health.checksResolved}/{health.checksTotal}
-          </Badge>
-          <Badge
-            variant={healthVariant(
-              health.reportsAvailable,
-              health.reportsTotal
-            )}
-          >
-            reports {health.reportsAvailable}/{health.reportsTotal}
-          </Badge>
-          <Badge variant="outline">
-            <ShieldCheck data-icon="inline-start" />
-            {health.paperRefs} paper ref{health.paperRefs === 1 ? "" : "s"}
-          </Badge>
-        </div>
+        <Disclosure title="Evidence health" icon={ShieldCheck}>
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              variant={healthVariant(health.codeResolved, health.codeTotal)}
+            >
+              code {health.codeResolved}/{health.codeTotal}
+            </Badge>
+            <Badge
+              variant={
+                health.quoteMissing > 0
+                  ? "destructive"
+                  : health.quoteFuzzy > 0
+                    ? "outline"
+                    : "secondary"
+              }
+            >
+              quotes {health.quoteExact} exact · {health.quoteFuzzy} fuzzy ·{" "}
+              {health.quoteMissing} missing
+            </Badge>
+            <Badge
+              variant={healthVariant(health.checksResolved, health.checksTotal)}
+            >
+              checks {health.checksResolved}/{health.checksTotal}
+            </Badge>
+            <Badge
+              variant={healthVariant(
+                health.reportsAvailable,
+                health.reportsTotal
+              )}
+            >
+              reports {health.reportsAvailable}/{health.reportsTotal}
+            </Badge>
+            <Badge variant="outline">
+              {health.paperRefs} paper ref{health.paperRefs === 1 ? "" : "s"}
+            </Badge>
+          </div>
+        </Disclosure>
       </div>
 
       <TabsContent value="code" className="flex flex-col gap-6">
