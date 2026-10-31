@@ -23,7 +23,9 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 FROM deps AS builder
 COPY . .
 # Dummy build-time values: the real ones are injected at runtime by compose.
-# Building must not touch a real database or secret.
+# Building must not touch a real database or secret. Import-time validation may
+# log warnings about these placeholders during `next build`; they are expected
+# and are never copied into the runtime environment.
 ENV BETTER_AUTH_SECRET=build-time-placeholder-not-used-at-runtime \
     BETTER_AUTH_URL=http://localhost:3000 \
     REGISTRATION_CODE=build-time-placeholder \
@@ -40,6 +42,12 @@ RUN rm -rf \
 # toolchain used for building is not inherited.
 FROM node:26-bookworm-slim AS runner
 WORKDIR /app
+
+# Phase 3 code search spawns the literal `rg` binary. Install it before
+# dropping to the unprivileged node user.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ripgrep \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

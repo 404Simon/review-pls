@@ -3,24 +3,34 @@ node_modules
 .next
 .next-e2e
 .playwright
+*.tsbuildinfo
+
+# local review data and exports (mount at runtime, never bake into the image)
+review-data
+data
+exports
 
 # local databases and secrets (never bake these into the image)
 local.db*
 .env*
-data
 
 # tests and reports
+e2e
+# Exclude script contents rather than the directory itself, so the postbuild
+# standalone check can be re-included for `pnpm build`.
+scripts/*
+!scripts/check-standalone.mjs
 test-results
 playwright-report
 blob-report
 coverage
 
-# tooling and docs
+# tooling, VCS and docs
 .git
 .github
 .agents
 .vercel
-*.tsbuildinfo
 README.md
 CLAUDE.md
 AGENTS.md
+PLAN.md

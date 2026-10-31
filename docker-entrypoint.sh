@@ -15,9 +15,23 @@ require_env DATABASE_URL
 require_env BETTER_AUTH_URL
 require_env BETTER_AUTH_SECRET
 require_env REGISTRATION_CODE
+require_env REVIEW_DATA_ROOT
 
 if [ -n "$missing" ]; then
   echo "Refusing to start." >&2
+  exit 1
+fi
+
+if [ ! -d "$REVIEW_DATA_ROOT" ]; then
+  echo "REVIEW_DATA_ROOT '$REVIEW_DATA_ROOT' does not exist or is not a directory." >&2
+  echo "Mount the prepared review data read-only at that path, for example:" >&2
+  echo "  ./review-data:/data/reviews:ro" >&2
+  exit 1
+fi
+
+if [ ! -r "$REVIEW_DATA_ROOT" ]; then
+  echo "REVIEW_DATA_ROOT '$REVIEW_DATA_ROOT' is not readable by uid $(id -u)." >&2
+  echo "Fix the host permissions, e.g. chmod -R a+rX ./review-data" >&2
   exit 1
 fi
 

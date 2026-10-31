@@ -39,6 +39,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - `src/lib/auth-client.ts` — auth client, additional-field inference, custom sign-up request.
 - `src/db/index.ts` — Drizzle client; schema is passed here so the adapter can resolve tables.
 - `src/db/auth-schema.ts` — **generated** by the Better Auth CLI. Do not hand-edit.
+- `src/db/review-schema.ts` — reviewer roles, item claims, the mutable review
+  decision row and the append-only `review_decision_event` history.
 - `drizzle/` — version-controlled migrations and snapshots.
 - `drizzle.config.ts` — Drizzle Kit config.
 - `e2e/` — Playwright tests and test-database preparation.
@@ -54,8 +56,16 @@ pnpm lint                # ESLint
 pnpm typecheck           # tsc --noEmit
 pnpm format              # Prettier (no semicolons, double quotes)
 
+pnpm test                # Vitest unit and database tests
 pnpm test:e2e            # Playwright, isolated DB + isolated dist dir
 pnpm test:e2e:ui         # Playwright UI mode
+
+pnpm review-data:prepare # build a review-data batch from the analysis repos
+pnpm review-data:check   # verify the Phase 1 data contract and counts
+pnpm review:admin:sync --list        # list registered ADMIN_EMAILS candidates
+pnpm review:admin:sync --user-id <id> # promote one confirmed candidate
+pnpm review:export --batch <id> --type dataset|decisions|both --out ./exports
+                         # write schema-versioned review exports (also /admin)
 
 pnpm auth:generate       # regenerate src/db/auth-schema.ts from src/lib/auth.ts
 pnpm db:generate         # generate a new Drizzle migration
@@ -85,7 +95,57 @@ pnpm db:studio           # Drizzle Studio
 5. Update `src/lib/auth-client.ts` input types if the sign-up flow changes.
 6. Add/extend Playwright coverage, then run `pnpm typecheck`, `pnpm lint`, `pnpm test:e2e`.
 
-The repo currently has a single initial migration. Do not squash or rewrite it after it has been deployed or once the database contains real data; add a new migration instead.
+The repo has the auth migration, the review-core migration, the claim-expiry
+migration, the decision-event migration and the event backfill
+(`0004_backfill_decision_events`). Do not squash or rewrite an applied migration
+once it has been deployed or the database contains real data; add a new
+migration instead. The backfill inserts an event for every pre-0003
+`closed`/`unsure` row that has none; it is safe to re-run because it checks for
+an existing matching event. Limitation: a pre-0004 closed/unsure decision that
+was already reopened before `0004` is no longer in `review_decision`, so only
+the `reopened` event remains and the original decision payload cannot be
+recovered by the backfill.
+
+`review_decision` is the current state per `(item, reviewer)`.
+`review_decision_event` is append-only: insert an event in the same transaction
+for every `closed`/`unsure` save and every admin reopen, never for draft
+autosaves. Reads that show unsure history or exports must use the event table,
+because a later draft can overwrite the mutable row.
+
+Unsure semantics: an unsure save releases the claim and leaves the item open.
+If the same reviewer re-claims and drafts later, the public status follows the
+active claim again (`claimed`, then `open` after the lease expires) while the
+unsure event stays in history. Stats and filters use that same derived status;
+they do not count a resumed item as unsure.
+
+Unknown batch/paper/item ids must render the `notFound()` boundary. Because
+`loading.tsx` starts the response stream first, that boundary can arrive as HTTP
+200 with the correct not-found body; the boundary is what matters. `DataErrorState`
+is only for corrupt mounted data; it shows a generic reviewer message and keeps
+absolute paths, hashes and loader details in an admin-only block.
+
+## Admin, exports and data health
+
+- `/admin` is admin-only (`notFound()` for reviewers) and is linked from the
+  shell only for admins. It owns data health, roles, active claims, the unsure
+  queue, statistics, exports and the review-data cache reload action.
+- `src/lib/review/export.ts` holds the pure, zod-validated dataset and
+  decisions-only builders. `src/lib/review/export-data.ts` is the only
+  export module that touches the mount and database. The dataset keeps every
+  decision row (including drafts), claims and the append-only event history;
+  decisions-only takes final closed rows plus the unsure event history and must
+  never contain a draft.
+- `scripts/export-reviews.ts` (`pnpm review:export`) writes
+  `exports/<batch>/review-dataset-<timestamp>.json` and
+  `decisions-<timestamp>.json`. Existing files at the same timestamp are refused
+  unless `--force` is passed; `--force` backs up and restores them if a later
+  install fails. `GET /api/admin/export/[batch]?type=dataset|decisions` is the
+  admin download route; both require admin authorization.
+- `src/lib/review/data-health.ts` caches evidence inspection for five minutes.
+  `adminReloadReviewDataAction` clears both the loader cache and the data-health
+  cache. Do not make the admin page re-resolve every anchor on each request.
+- Exports may include reviewer email; reviewer-facing views must keep using
+  `getReviewerNames` (id + name only).
 
 ## Environment and security
 
@@ -94,10 +154,13 @@ The repo currently has a single initial migration. Do not squash or rewrite it a
 - `BETTER_AUTH_SECRET` — server-only secret, at least 32 characters.
 - `BETTER_AUTH_URL` — public base URL, e.g. `http://localhost:3000`.
 - `DATABASE_URL` — SQLite path, e.g. `./local.db`.
+- `REVIEW_DATA_ROOT` — read-only review-data mount, one directory per batch (e.g. `./review-data`). Never commit it.
 - `REGISTRATION_CODE` — invite code. **Never expose it to the client**; never name it `NEXT_PUBLIC_*`, log it, or return it in an API response.
+- `ADMIN_EMAILS` — comma-separated **candidate allowlist** for `pnpm review:admin:sync`. It never grants admin at request time. The real admin registers first; an operator inspects `pnpm review:admin:sync --list` and then runs `pnpm review:admin:sync --user-id <id>` to promote exactly that account. This confirmation step prevents pre-registration takeover: anyone with the invite code could otherwise register an allowlisted address before its owner. Unmatched configured emails are reported and never created, and the command exits non-zero for them.
 
 Security rules:
 
+- Admin bootstrap is explicit: `ADMIN_EMAILS` only lists candidates, and promotion requires `pnpm review:admin:sync --user-id <id>` after the real admin registered. Never promote by email match alone; that allows pre-registration takeover.
 - Keep the registration-code comparison server-side and fail closed when the variable is unset.
 - Do not disable Better Auth rate limiting, CSRF, or origin checks without explicit approval.
 - Do not weaken cookie or session settings to make local tests pass.

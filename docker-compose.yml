@@ -23,6 +23,16 @@ services:
       # SQLite file inside the container; keep it on the bind mount below.
       DATABASE_URL: "/data/review.db"
 
+      # Read-only review data. One directory per prepared batch. Create the
+      # host directory and make it world-readable before starting:
+      #   mkdir -p review-data && chmod -R a+rX review-data
+      REVIEW_DATA_ROOT: "/data/reviews"
+
+      # Candidate allowlist only. It never grants admin at request time.
+      # Inspect registered candidates with `pnpm review:admin:sync --list` and
+      # promote the confirmed account with `--user-id <id>`.
+      ADMIN_EMAILS: "simon@example.org"
+
       NODE_ENV: "production"
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
@@ -32,3 +42,7 @@ services:
       # The directory must exist and be writable by uid 1000:
       #   mkdir -p data && sudo chown -R 1000:1000 data
       - ./data:/data
+      # Prepared review data is mounted read-only. Never commit it, and make it
+      # readable by the container's node user:
+      #   chmod -R a+rX ./review-data
+      - ./review-data:/data/reviews:ro
