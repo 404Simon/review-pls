@@ -1,0 +1,1 @@
+CREATE INDEX `item_claim_expires_idx` ON `item_claim` (`expires_at`);

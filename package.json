@@ -7,12 +7,19 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/check-standalone.mjs --clean",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "review-data:prepare": "tsx scripts/prepare-review-data.ts",
+    "review-data:check": "tsx scripts/check-review-data.ts",
+    "check:standalone": "node scripts/check-standalone.mjs",
+    "review:admin:sync": "tsx scripts/sync-admin-roles.ts",
+    "review:export": "tsx scripts/export-reviews.ts",
     "auth:generate": "pnpm dlx auth@1.7.14 generate --config ./src/lib/auth.ts --adapter drizzle --dialect sqlite --output src/db/auth-schema.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -31,8 +38,12 @@
     "next-themes": "^0.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "shadcn": "^4.23.0",
-    "tw-animate-css": "^1.4.0"
+    "sonner": "^2.0.8",
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.1",
@@ -48,6 +59,8 @@
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
-    "typescript": "^6"
+    "tsx": "^4.23.15",
+    "typescript": "^6",
+    "vitest": "^5.0.5"
   }
 }

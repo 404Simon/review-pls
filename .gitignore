@@ -35,6 +35,10 @@ pnpm-debug.log*
 local.db*
 /data/
 
+# generated review data and exports
+/review-data/
+/exports/
+
 # playwright
 /.playwright/
 /.next-e2e/

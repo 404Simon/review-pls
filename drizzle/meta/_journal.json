@@ -8,6 +8,34 @@
       "when": 1793301746852,
       "tag": "0000_legal_edwin_jarvis",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793395283180,
+      "tag": "0001_review_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793397792086,
+      "tag": "0002_item_claim_expires_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793411332630,
+      "tag": "0003_lyrical_korvac",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793415588444,
+      "tag": "0004_backfill_decision_events",
+      "breakpoints": true
     }
   ]
 }
