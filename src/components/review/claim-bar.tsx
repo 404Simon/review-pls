@@ -94,8 +94,8 @@ export interface ClaimBarProps {
   pending: boolean
   onClaim: () => void
   onRelease: () => void
-  /** Popover trigger rendered next to Release for the current claimant. */
-  decisionTrigger?: ReactNode
+  /** Popover trigger rendered in the action group (decision or details). */
+  actionTrigger?: ReactNode
 }
 
 export function ClaimBar({
@@ -111,7 +111,7 @@ export function ClaimBar({
   pending,
   onClaim,
   onRelease,
-  decisionTrigger,
+  actionTrigger,
 }: ClaimBarProps) {
   const now = useNow(serverNow)
 
@@ -204,9 +204,7 @@ export function ClaimBar({
               Reserve
             </Button>
           ) : null}
-          {status !== "closed" && mine && decisionTrigger
-            ? decisionTrigger
-            : null}
+          {actionTrigger}
           {status !== "closed" && mine ? (
             <AlertDialog>
               <AlertDialogTrigger

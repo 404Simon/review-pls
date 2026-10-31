@@ -18,3 +18,11 @@ export async function closeDecisionForm(page: Page) {
   await page.keyboard.press("Escape")
   await expect(page.getByLabel("Reviewer note")).not.toBeVisible()
 }
+
+/** Open the read-only final decision details from the closed claim bar. */
+export async function openFinalDecisionDetails(page: Page) {
+  await page.getByRole("button", { name: "Details", exact: true }).click()
+  const details = page.getByRole("dialog", { name: "Final decision" })
+  await expect(details).toBeVisible()
+  return details
+}

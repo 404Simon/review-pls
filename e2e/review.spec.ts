@@ -8,7 +8,7 @@ import {
   type Page,
 } from "@playwright/test"
 
-import { openDecisionForm } from "./helpers"
+import { openDecisionForm, openFinalDecisionDetails } from "./helpers"
 
 const registrationCode = process.env.REGISTRATION_CODE
 const password = "correct-horse-42"
@@ -160,7 +160,7 @@ test("reserves, closes a cluster decision and makes it read-only", async ({
 
   await page.goto(url)
   await expect(page.getByText(/Closed by/).first()).toBeVisible()
-  await expect(page.getByText("Final decision", { exact: true })).toBeVisible()
+  await openFinalDecisionDetails(page)
   await expect(page.getByRole("button", { name: "Save & close" })).toHaveCount(
     0
   )

@@ -324,7 +324,7 @@ test("/ and ' flush the pending draft before opening search", async ({
     await page.getByLabel("Reviewer note").fill(entry.note)
     // Move focus off the textarea so the page shortcut is allowed, then press
     // before the 800 ms autosave debounce fires.
-    await page.locator("h1").click()
+    await page.getByLabel("Reviewer note").blur()
     await page.keyboard.press(entry.key)
     await expect(page).toHaveURL(
       new RegExp(`/batches/review-fixture-b/papers/${entry.paper}`)

@@ -5,7 +5,7 @@ import path from "node:path"
 import { expect, test, type Browser, type Page } from "@playwright/test"
 import Database from "better-sqlite3"
 
-import { openDecisionForm } from "./helpers"
+import { openDecisionForm, openFinalDecisionDetails } from "./helpers"
 
 const registrationCode = process.env.REGISTRATION_CODE
 const password = "correct-horse-42"
@@ -279,9 +279,8 @@ test("an admin reopens a closed item and the history keeps the decision", async 
     )
 
     await admin.page.goto(url)
-    await expect(
-      admin.page.getByText("Final decision", { exact: true })
-    ).toBeVisible()
+    await openFinalDecisionDetails(admin.page)
+    await admin.page.keyboard.press("Escape")
     await admin.page.getByRole("button", { name: "Reopen item" }).click()
     await expect(
       admin.page.getByRole("heading", { name: "Reopen this closed item?" })
@@ -357,11 +356,9 @@ test("a different reviewer sees a closed item read-only", async ({
     )
 
     await second.page.goto(url)
+    const details = await openFinalDecisionDetails(second.page)
     await expect(
-      second.page.getByText("Final decision", { exact: true })
-    ).toBeVisible()
-    await expect(
-      second.page.getByText("The ablation really is missing.").first()
+      details.getByText("The ablation really is missing.")
     ).toBeVisible()
     await expect(
       second.page.getByRole("button", { name: "Save & close" })

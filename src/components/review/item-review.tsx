@@ -6,6 +6,7 @@ import {
   Bot,
   FileText,
   History,
+  Info,
   Keyboard,
   PencilLine,
   ShieldCheck,
@@ -37,19 +38,12 @@ import { ShortcutHelp } from "@/components/review/shortcut-help"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
   Popover,
   PopoverClose,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import type { ItemReviewState } from "@/lib/review/decisions"
+import type { DecisionView, ItemReviewState } from "@/lib/review/decisions"
 import {
   claimItemAction,
   heartbeatItemAction,
@@ -74,52 +68,39 @@ function isInternalAppPath(pathname: string): boolean {
   )
 }
 
-function ClosedDecisionCard({
+function FinalDecisionDetails({
   item,
-  state,
+  decision,
 }: {
   item: ReviewItem
-  state: ItemReviewState
+  decision: DecisionView
 }) {
-  if (!state.finalDecision) {
-    return null
-  }
-  const summary = describeDecision(
-    item.kind,
-    state.finalDecision.record.payload
-  )
+  const summary = describeDecision(item.kind, decision.record.payload)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheck data-icon="inline-start" />
-          Final decision
-        </CardTitle>
-        <CardDescription>
-          Read-only for reviewers. An admin can reopen the item.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Badge>{summary.verdict}</Badge>
-        {summary.details.length > 0 ? (
-          <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
-            {summary.details.map((detail) => (
-              <li key={detail}>{detail}</li>
-            ))}
-          </ul>
-        ) : null}
-        {summary.note ? (
-          <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap">
-            {summary.note}
-          </p>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            The reviewer saved no note.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4 p-4 pr-10">
+      <h2 className="flex items-center gap-2 font-heading text-base font-medium">
+        <ShieldCheck data-icon="inline-start" />
+        Final decision
+      </h2>
+      <Badge>{summary.verdict}</Badge>
+      {summary.details.length > 0 ? (
+        <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
+          {summary.details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      ) : null}
+      {summary.note ? (
+        <p className="rounded-lg bg-muted/60 px-3 py-2 text-sm whitespace-pre-wrap">
+          {summary.note}
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          The reviewer saved no note.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -172,7 +153,7 @@ export function ItemReview({
   const router = useRouter()
   const [pending, setPending] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  const [decisionOpen, setDecisionOpen] = useState(false)
+  const [popoverOpen, setPopoverOpen] = useState(false)
   const [extendedLease, setExtendedLease] = useState<{
     claimId: string
     expiresAt: number
@@ -294,9 +275,11 @@ export function ItemReview({
   }, [claim?.userId, currentUserId, router, status])
 
   const canEdit = status !== "closed" && claim?.userId === currentUserId
+  const canShowFinalDecision = status === "closed" && finalDecision !== null
+  const popoverAvailable = canEdit || canShowFinalDecision
 
-  const handleDecisionOpenChange = useCallback((open: boolean) => {
-    setDecisionOpen(open)
+  const handlePopoverOpenChange = useCallback((open: boolean) => {
+    setPopoverOpen(open)
   }, [])
 
   const navigateTo = useCallback(
@@ -382,7 +365,7 @@ export function ItemReview({
         return
       }
 
-      if (decisionOpen) {
+      if (popoverOpen && canEdit) {
         // The decision dialog owns the keyboard. Its verdict/save/unsure
         // shortcuts stay available even though dialogs normally suppress the
         // page shortcuts.
@@ -418,6 +401,11 @@ export function ItemReview({
             event.preventDefault()
             decisionActions.current.markUnsure()
           }
+          return
+        }
+        if (isSearchKey(event.key)) {
+          event.preventDefault()
+          void navigateTo(focusSearchHref)
         }
         return
       }
@@ -500,7 +488,7 @@ export function ItemReview({
     canEdit,
     claim?.userId,
     currentUserId,
-    decisionOpen,
+    popoverOpen,
     focusSearchHref,
     helpOpen,
     navigateTo,
@@ -585,8 +573,8 @@ export function ItemReview({
       </header>
 
       <Popover
-        open={decisionOpen && canEdit}
-        onOpenChange={handleDecisionOpenChange}
+        open={popoverOpen && popoverAvailable}
+        onOpenChange={handlePopoverOpenChange}
       >
         <ClaimBar
           item={item}
@@ -601,22 +589,33 @@ export function ItemReview({
           pending={pending}
           onClaim={() => void claimItem()}
           onRelease={() => void releaseItem()}
-          decisionTrigger={
-            <PopoverTrigger render={<Button size="sm" disabled={pending} />}>
-              <PencilLine data-icon="inline-start" />
-              Your decision
-            </PopoverTrigger>
+          actionTrigger={
+            canEdit ? (
+              <PopoverTrigger render={<Button size="sm" disabled={pending} />}>
+                <PencilLine data-icon="inline-start" />
+                Your decision
+              </PopoverTrigger>
+            ) : canShowFinalDecision ? (
+              <PopoverTrigger render={<Button size="sm" variant="outline" />}>
+                <Info data-icon="inline-start" />
+                Details
+              </PopoverTrigger>
+            ) : null
           }
         />
         <PopoverContent
           data-decision-popover
-          aria-label="Your decision"
+          aria-label={canEdit ? "Your decision" : "Final decision"}
           align="end"
           side="bottom"
           sideOffset={8}
           collisionAvoidance={{ side: "shift", align: "shift" }}
           keepMounted
-          className="max-h-(--available-height) w-[min(44rem,calc(100vw-2rem))] overflow-y-auto p-0"
+          className={`max-h-(--available-height) overflow-y-auto p-0 ${
+            canEdit
+              ? "w-[min(44rem,calc(100vw-2rem))]"
+              : "w-[min(32rem,calc(100vw-2rem))]"
+          }`}
         >
           <PopoverClose
             render={
@@ -630,20 +629,24 @@ export function ItemReview({
             <X />
             <span className="sr-only">Close</span>
           </PopoverClose>
-          <DecisionForm
-            // A server refresh that changes editability or the draft remounts
-            // the form, which clears a completed release/discard lock.
-            key={`${item.id}:${canEdit ? "edit" : "read"}:${claim?.id ?? "none"}`}
-            embedded
-            item={item}
-            batchId={batchId}
-            draft={draft}
-            canEdit={canEdit}
-            nextHref={saveNextHref ?? nextItemHref}
-            returnHref={returnHref}
-            linkCandidates={linkCandidates}
-            actionRef={decisionActions}
-          />
+          {canEdit ? (
+            <DecisionForm
+              // A server refresh that changes editability or the draft remounts
+              // the form, which clears a completed release/discard lock.
+              key={`${item.id}:${canEdit ? "edit" : "read"}:${claim?.id ?? "none"}`}
+              embedded
+              item={item}
+              batchId={batchId}
+              draft={draft}
+              canEdit={canEdit}
+              nextHref={saveNextHref ?? nextItemHref}
+              returnHref={returnHref}
+              linkCandidates={linkCandidates}
+              actionRef={decisionActions}
+            />
+          ) : canShowFinalDecision && finalDecision ? (
+            <FinalDecisionDetails item={item} decision={finalDecision} />
+          ) : null}
         </PopoverContent>
       </Popover>
 
@@ -669,10 +672,6 @@ export function ItemReview({
 
       <div className="flex flex-col gap-6">
         <FindingOverview item={item} />
-
-        {status === "closed" ? (
-          <ClosedDecisionCard item={item} state={{ ...state, finalDecision }} />
-        ) : null}
 
         <section
           id="evidence"
