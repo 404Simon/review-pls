@@ -149,7 +149,7 @@ function CheckBody({ check }: { check: CheckEvidence }) {
               <a
                 href={check.url}
                 target="_blank"
-                rel="noreferrer"
+                rel="noreferrer noopener"
                 className="underline underline-offset-4"
               >
                 Open external artifact
@@ -245,7 +245,7 @@ export function CheckView({ checks }: { checks: CheckEvidence[] }) {
                 <a
                   href={check.url}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noreferrer noopener"
                   className="text-xs underline underline-offset-4"
                 >
                   Open full artifact

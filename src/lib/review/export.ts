@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { latestClosedDecision, isDecisionStale } from "@/lib/review/decisions"
+import { resolveGithubRepoUrl } from "@/lib/review/github"
 import { KIND_ORDER } from "@/lib/review/ids"
 import type { LoadedItems } from "@/lib/review/load"
 import {
@@ -213,6 +214,7 @@ const datasetPaperSchema = z
         dir: z.string(),
         role: z.enum(["repository", "supplement", "workspace"]),
         commit: z.string().nullable(),
+        url: z.string().nullable().optional(),
       })
     ),
     counts: z.object({
@@ -479,6 +481,14 @@ export function buildReviewDataset(input: ExportInput): ReviewDatasetExport {
             dir: repo.dir,
             role: repo.role,
             commit: repo.commit,
+            url:
+              repo.role === "repository"
+                ? resolveGithubRepoUrl({
+                    name: repo.name,
+                    url: repo.url,
+                    commit: repo.commit,
+                  })
+                : null,
           }))
           .sort((a, b) => compareText(a.name, b.name)),
         counts: {

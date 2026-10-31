@@ -56,3 +56,20 @@ export function hasTraversal(relative: string): boolean {
   }
   return relative.split(/[\\/]+/).some((segment) => segment === "..")
 }
+
+/**
+ * A Windows drive prefix (`C:\repo\file.py`) or a URI scheme (`https:`,
+ * `mailto:`, `s3:`) is never a relative path inside a batch. The scheme pattern
+ * requires at least two characters before the colon so it cannot swallow a
+ * one-letter drive prefix; `hasWindowsDrivePrefix` covers that case.
+ */
+const WINDOWS_DRIVE_PREFIX = /^[A-Za-z]:/
+const URI_SCHEME_PREFIX = /^[a-z][a-z0-9+.-]+:/i
+
+export function hasWindowsDrivePrefix(value: string): boolean {
+  return WINDOWS_DRIVE_PREFIX.test(value)
+}
+
+export function hasUriSchemePrefix(value: string): boolean {
+  return URI_SCHEME_PREFIX.test(value)
+}

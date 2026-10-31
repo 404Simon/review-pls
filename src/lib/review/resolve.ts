@@ -10,6 +10,8 @@ import type { Dirent, Stats } from "node:fs"
 
 import {
   hasTraversal,
+  hasUriSchemePrefix,
+  hasWindowsDrivePrefix,
   isIgnoredRelativePath,
   isWithin,
   joinWithin,
@@ -653,6 +655,7 @@ export async function resolveEvidence(
   const raw = finding.file.trim()
   const attempts: ResolutionAttempt[] = []
   const { lineStart, lineEnd } = lineRange(finding)
+  const relative = raw.replace(/\\/g, "/").replace(/^\.\/+/, "")
 
   if (raw === "") {
     return resultFor(
@@ -670,11 +673,25 @@ export async function resolveEvidence(
     return resultFor("url", null, raw, finding, attempts, "not_checkable", null)
   }
 
-  if (
-    path.isAbsolute(raw) ||
-    /^[A-Za-z]:\//.test(raw.replace(/\\/g, "/")) ||
-    hasTraversal(raw)
-  ) {
+  if (hasWindowsDrivePrefix(relative) || hasUriSchemePrefix(relative)) {
+    attempts.push({
+      step: "reject-path",
+      path: raw,
+      outcome: "skip",
+      note: "drive and URL-like paths are not local evidence",
+    })
+    return resultFor(
+      "missing",
+      null,
+      null,
+      finding,
+      attempts,
+      finding.quote ? "missing" : "not_checkable",
+      "evidence path is a drive or URL-like path"
+    )
+  }
+
+  if (path.isAbsolute(raw) || hasTraversal(raw)) {
     attempts.push({
       step: "reject-path",
       path: raw,
@@ -692,7 +709,6 @@ export async function resolveEvidence(
     )
   }
 
-  const relative = raw.replace(/\\/g, "/").replace(/^\.\/+/, "")
   let realRoot = path.resolve(roots.batchRoot)
   try {
     realRoot = await realpath(roots.batchRoot)

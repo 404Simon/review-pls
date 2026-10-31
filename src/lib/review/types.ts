@@ -257,6 +257,8 @@ export const codeRepoManifestSchema = z.object({
   dir: z.string(),
   role: codeRepoRoleSchema,
   commit: z.string().nullable(),
+  /** Canonical GitHub repository URL, when the repo is publicly linkable. */
+  url: z.string().nullable().optional(),
 })
 export type CodeRepoManifest = z.infer<typeof codeRepoManifestSchema>
 

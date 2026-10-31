@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileSearch,
   FolderTree,
+  GitBranch,
   Link2,
   Search,
 } from "lucide-react"
@@ -114,7 +115,7 @@ function MissingCode({ evidence }: { evidence: CodeEvidence }) {
                   <a
                     href={match.url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noreferrer noopener"
                     className="font-mono break-all underline underline-offset-4"
                   >
                     {match.path}
@@ -152,11 +153,25 @@ function MissingCode({ evidence }: { evidence: CodeEvidence }) {
           </details>
         ) : null}
         <div className="flex flex-wrap gap-2">
+          {evidence.githubRepoUrl ? (
+            <a
+              href={evidence.githubRepoUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={buttonVariants({ variant: "outline", size: "xs" })}
+            >
+              <GitBranch data-icon="inline-start" />
+              Browse repository
+              {evidence.githubCommit
+                ? ` at ${evidence.githubCommit.slice(0, 7)}`
+                : ""}
+            </a>
+          ) : null}
           {evidence.treeUrl ? (
             <a
               href={evidence.treeUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
               <FolderTree data-icon="inline-start" />
@@ -167,7 +182,7 @@ function MissingCode({ evidence }: { evidence: CodeEvidence }) {
             <a
               href={evidence.searchUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
               <Search data-icon="inline-start" />
@@ -201,7 +216,7 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
           <a
             href={evidence.externalUrl ?? evidence.raw}
             target="_blank"
-            rel="noreferrer"
+            rel="noreferrer noopener"
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             <ExternalLink data-icon="inline-start" />
@@ -298,7 +313,7 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
             <a
               href={evidence.fileUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
               <FileSearch data-icon="inline-start" />
@@ -309,7 +324,7 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
             <a
               href={evidence.treeUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
               <FolderTree data-icon="inline-start" />
@@ -320,11 +335,33 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
             <a
               href={evidence.searchUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
               <Search data-icon="inline-start" />
               Search repo
+            </a>
+          ) : null}
+          {evidence.githubFileUrl ? (
+            <a
+              href={evidence.githubFileUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={buttonVariants({ variant: "outline", size: "xs" })}
+            >
+              <GitBranch data-icon="inline-start" />
+              View on GitHub
+            </a>
+          ) : null}
+          {evidence.githubRepoUrl ? (
+            <a
+              href={evidence.githubRepoUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className={buttonVariants({ variant: "outline", size: "xs" })}
+            >
+              <GitBranch data-icon="inline-start" />
+              Browse repo at commit
             </a>
           ) : null}
           <CopyPathButton value={evidence.relativePath ?? evidence.raw} />

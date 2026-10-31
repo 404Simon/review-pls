@@ -1,0 +1,1 @@
+Synthetic workspace directory without a known revision.

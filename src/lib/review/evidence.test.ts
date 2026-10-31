@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import path from "node:path"
@@ -34,7 +35,7 @@ import {
 } from "@/lib/review/evidence"
 import { joinWithin } from "@/lib/review/paths"
 import { loadItems } from "@/lib/review/load"
-import type { PaperManifest } from "@/lib/review/types"
+import type { PaperManifest, ReviewItem } from "@/lib/review/types"
 
 describe("parseCsv", () => {
   it("parses quoted fields, escaped quotes and CRLF rows", () => {
@@ -367,6 +368,17 @@ describe("evidence bundle from the committed fixture", () => {
     expect(finding?.code.kind).toBe("file")
     expect(finding?.code.quoteMatch).toBe("exact")
     expect(finding?.code.preview?.lines.some((line) => line.cited)).toBe(true)
+    expect(finding?.code.githubFileUrl).toBe(
+      "https://github.com/example/fixturerepo/blob/0123456789abcdef0123456789abcdef01234567/train.py#L10-L14"
+    )
+    expect(finding?.code.githubRepoUrl).toBe(
+      "https://github.com/example/fixturerepo/tree/0123456789abcdef0123456789abcdef01234567"
+    )
+    expect(finding?.code.githubCommit).toBe(
+      "0123456789abcdef0123456789abcdef01234567"
+    )
+    expect(finding?.checks[0]).not.toHaveProperty("githubFileUrl")
+    expect(finding?.paper).not.toHaveProperty("githubFileUrl")
     expect(finding?.paper.pages).toEqual([2])
     expect(finding?.paper.pdfAvailable).toBe(true)
     expect(finding?.report.available).toBe(true)
@@ -458,6 +470,11 @@ describe("evidence bundle from the committed fixture", () => {
           !match.path.startsWith("/") && match.url.startsWith("/api/evidence/")
       )
     ).toBe(true)
+    expect(code.githubFileUrl).toBeNull()
+    expect(code.githubRepoUrl).toBe(
+      "https://github.com/example/fixturerepo/tree/0123456789abcdef0123456789abcdef01234567"
+    )
+    expect(code.githubCommit).toBe("0123456789abcdef0123456789abcdef01234567")
     expect(bundle.health.codeMissing).toBe(1)
   })
 
@@ -495,6 +512,74 @@ describe("evidence bundle from the committed fixture", () => {
     expect(check.format).toBe("url")
     expect(check.resolved).toBe(false)
     expect(check.url).toBe("https://example.org/artifact.csv")
+  })
+
+  it("omits GitHub links for external URL anchors", async () => {
+    const loaded = await loadItems(batchId, { root })
+    const item = loaded.items.find(
+      (candidate) => candidate.kind === "agent_only" && candidate.ref === "a2"
+    )
+    const paper = loaded.papers[0]
+    const paperDir = joinWithin(loaded.batch.dir, paper.manifest.dir)
+    if (!item || !paperDir) {
+      return
+    }
+    const withUrl = {
+      ...item,
+      findings: {
+        ...item.findings,
+        agent: item.findings.agent.map((finding) => ({
+          ...finding,
+          file: "https://example.org/artifact.py",
+        })),
+      },
+    }
+    const bundle = await buildEvidenceBundle({
+      batchId,
+      paperId: "1001",
+      item: withUrl,
+      roots: evidenceRootsFromPaper(loaded.batch.dir, {
+        manifest: paper.manifest,
+        dir: paperDir,
+      }),
+    })
+    const code = bundle.sides[0].findings[0].code
+    expect(code.kind).toBe("url")
+    expect(code.githubFileUrl).toBeNull()
+    expect(code.githubRepoUrl).toBeNull()
+    expect(code.githubCommit).toBeNull()
+  })
+
+  it("omits GitHub links when the repository has no commit", async () => {
+    const loaded = await loadItems(batchId, { root })
+    const item = loaded.items.find(
+      (candidate) => candidate.kind === "cluster" && candidate.ref === "M01"
+    )
+    const paper = loaded.papers[0]
+    const paperDir = joinWithin(loaded.batch.dir, paper.manifest.dir)
+    if (!item || !paperDir) {
+      return
+    }
+    const manifest = {
+      ...paper.manifest,
+      code: paper.manifest.code.map((repo) => ({ ...repo, commit: null })),
+    }
+    const bundle = await buildEvidenceBundle({
+      batchId,
+      paperId: "1001",
+      item,
+      roots: evidenceRootsFromPaper(loaded.batch.dir, {
+        manifest,
+        dir: paperDir,
+      }),
+    })
+    for (const side of bundle.sides) {
+      for (const finding of side.findings) {
+        expect(finding.code.githubFileUrl).toBeNull()
+        expect(finding.code.githubRepoUrl).toBeNull()
+        expect(finding.code.githubCommit).toBeNull()
+      }
+    }
   })
 
   it("lists the tree without ignored or hidden directories", async () => {
@@ -574,6 +659,369 @@ describe("evidence bundle from the committed fixture", () => {
       await rm(workspace, { recursive: true, force: true })
     }
   })
+})
+
+describe("missing-anchor repository guesses", () => {
+  const fixtureRoot = path.join(process.cwd(), "e2e", "fixtures", "review-data")
+  const commit = "0123456789abcdef0123456789abcdef01234567"
+  const secondCommit = "89abcdef0123456789abcdef0123456789abcdef"
+
+  let workspace: string
+  let batchRoot: string
+  let paperDir: string
+  let baseManifest: PaperManifest
+  let baseItem: ReviewItem
+
+  function singleRepo(): PaperManifest["code"] {
+    return [
+      {
+        name: "Only__Repo",
+        dir: "code/Only__Repo",
+        role: "repository",
+        commit,
+      },
+    ]
+  }
+
+  function twoRepos(): PaperManifest["code"] {
+    return [
+      ...singleRepo(),
+      {
+        name: "Second__Repo",
+        dir: "code/Second__Repo",
+        role: "repository",
+        commit: secondCommit,
+      },
+    ]
+  }
+
+  function rootsFor(code: PaperManifest["code"]) {
+    return evidenceRootsFromPaper(batchRoot, {
+      manifest: { ...baseManifest, code },
+      dir: paperDir,
+    })
+  }
+
+  async function codeFor(file: string, code: PaperManifest["code"]) {
+    const finding = baseItem.findings.agent[0]
+    const item: ReviewItem = {
+      ...baseItem,
+      findings: {
+        ...baseItem.findings,
+        agent: [
+          { ...finding, file, quote: "", lineStart: null, lineEnd: null },
+        ],
+      },
+    }
+    const bundle = await buildEvidenceBundle({
+      batchId: "missing-anchor",
+      paperId: "p1",
+      item,
+      roots: rootsFor(code),
+    })
+    return bundle.sides[0].findings[0].code
+  }
+
+  beforeAll(async () => {
+    const loaded = await loadItems("review-fixture", { root: fixtureRoot })
+    const item = loaded.items.find(
+      (candidate) => candidate.kind === "agent_only" && candidate.ref === "a2"
+    )
+    expect(item).toBeDefined()
+    if (!item) {
+      return
+    }
+    baseItem = item
+    workspace = await mkdtemp(path.join(tmpdir(), "missing-anchor-"))
+    batchRoot = path.join(workspace, "batch")
+    paperDir = path.join(batchRoot, "papers", "p1")
+    const repo = path.join(paperDir, "code", "Only__Repo")
+    await mkdir(path.join(repo, "out"), { recursive: true })
+    await mkdir(path.join(repo, "checks"), { recursive: true })
+    await writeFile(path.join(repo, "train.py"), "print('hi')\n", "utf8")
+    await writeFile(
+      path.join(repo, "out", "check.csv"),
+      "reference,result\ntrain.py:1,hit\n",
+      "utf8"
+    )
+    await writeFile(
+      path.join(repo, "checks", "result.csv"),
+      "reference,result\ntrain.py:1,hit\n",
+      "utf8"
+    )
+    await mkdir(path.join(paperDir, "code", "supplement"), { recursive: true })
+    await writeFile(
+      path.join(paperDir, "code", "supplement", "data.csv"),
+      "reference,result\ntrain.py:1,supplement\n",
+      "utf8"
+    )
+    await mkdir(path.join(paperDir, "code", "workspace"), { recursive: true })
+    await writeFile(
+      path.join(paperDir, "code", "workspace", "notes.txt"),
+      "synthetic workspace notes\n",
+      "utf8"
+    )
+    await mkdir(path.join(paperDir, "code", "Second__Repo"), {
+      recursive: true,
+    })
+    baseManifest = loaded.papers[0].manifest
+  })
+
+  afterAll(async () => {
+    await rm(workspace, { recursive: true, force: true })
+  })
+
+  it("does not guess a repository for transient or paper artifacts", async () => {
+    for (const file of [
+      "out/check_missing.csv",
+      "paper.pdf",
+      "paper_text.txt",
+      "_audit_code/out/result.json",
+      "_verifier_code/check.py",
+      "run/audit.md",
+      "auditowl/audit.md",
+      "supplement/missing.csv",
+      "workspace/missing.txt",
+      "audit.md",
+    ]) {
+      const code = await codeFor(file, singleRepo())
+      expect(code.kind, file).toBe("missing")
+      expect(code.githubFileUrl, file).toBeNull()
+      expect(code.githubRepoUrl, file).toBeNull()
+      expect(code.githubCommit, file).toBeNull()
+    }
+  })
+
+  it("leaves resolved supplement and workspace entries plain", async () => {
+    const code: PaperManifest["code"] = [
+      ...singleRepo(),
+      {
+        name: "supplement",
+        dir: "code/supplement",
+        role: "supplement",
+        commit: null,
+      },
+      {
+        name: "workspace",
+        dir: "code/workspace",
+        role: "workspace",
+        commit: null,
+      },
+    ]
+    expect(rootsFor(code).repos.map((repo) => repo.url)).toEqual([
+      "https://github.com/Only/Repo",
+      null,
+      null,
+    ])
+
+    for (const file of ["supplement/data.csv", "workspace/notes.txt"]) {
+      const evidence = await codeFor(file, code)
+      expect(evidence.kind, file).toBe("file")
+      expect(evidence.repo, file).toBe(file.split("/")[0])
+      expect(evidence.githubFileUrl, file).toBeNull()
+      expect(evidence.githubRepoUrl, file).toBeNull()
+      expect(evidence.githubCommit, file).toBeNull()
+    }
+  })
+
+  it("rejects absolute, URL and escaping paths", async () => {
+    for (const file of [
+      "/etc/passwd",
+      "C:\\etc\\passwd",
+      "../outside.py",
+      "src/../../outside.py",
+    ]) {
+      const code = await codeFor(file, singleRepo())
+      expect(code.kind, file).toBe("missing")
+      expect(code.githubRepoUrl, file).toBeNull()
+    }
+
+    const url = await codeFor("https://example.org/artifact.py", singleRepo())
+    expect(url.kind).toBe("url")
+    expect(url.githubFileUrl).toBeNull()
+    expect(url.githubRepoUrl).toBeNull()
+  })
+
+  it("rejects URL-like bare paths with a scheme prefix", async () => {
+    for (const file of [
+      "https:/example.org/train.py",
+      "http:/example.org/train.py",
+      "mailto:someone@example.org",
+      "s3:/bucket/object.py",
+      "file:/tmp/train.py",
+      "C:/repo/train.py",
+      "C:relative.py",
+    ]) {
+      const code = await codeFor(file, singleRepo())
+      expect(code.kind, file).toBe("missing")
+      expect(code.githubFileUrl, file).toBeNull()
+      expect(code.githubRepoUrl, file).toBeNull()
+      expect(code.githubCommit, file).toBeNull()
+    }
+  })
+
+  it("does not link a repository with an explicit non-GitHub URL", async () => {
+    const code: PaperManifest["code"] = [
+      {
+        name: "Only__Repo",
+        dir: "code/Only__Repo",
+        role: "repository",
+        commit,
+        url: "https://example.org/not-github",
+      },
+    ]
+    expect(rootsFor(code).repos[0]?.url).toBeNull()
+
+    const evidence = await codeFor("train.py", code)
+    expect(evidence.kind).toBe("file")
+    expect(evidence.repo).toBe("Only__Repo")
+    expect(evidence.githubFileUrl).toBeNull()
+    expect(evidence.githubRepoUrl).toBeNull()
+    expect(evidence.githubCommit).toBeNull()
+  })
+
+  it("does not attribute an unknown code/ prefix to the only repo", async () => {
+    const code = await codeFor("code/OtherRepo/check.py", singleRepo())
+    expect(code.kind).toBe("missing")
+    expect(code.githubRepoUrl).toBeNull()
+    expect(code.repo).toBeNull()
+  })
+
+  it("links a bare code file only when exactly one repo exists", async () => {
+    const one = await codeFor("src/module.py", singleRepo())
+    expect(one.kind).toBe("missing")
+    expect(one.githubFileUrl).toBeNull()
+    expect(one.githubRepoUrl).toBe(
+      `https://github.com/Only/Repo/tree/${commit}`
+    )
+    expect(one.githubCommit).toBe(commit)
+
+    const many = await codeFor("src/module.py", twoRepos())
+    expect(many.kind).toBe("missing")
+    expect(many.githubRepoUrl).toBeNull()
+    expect(many.githubCommit).toBeNull()
+  })
+
+  it("links a repo-prefixed missing path for the named repo", async () => {
+    const code = await codeFor("code/Second__Repo/missing.py", twoRepos())
+    expect(code.kind).toBe("missing")
+    expect(code.repo).toBe("Second__Repo")
+    expect(code.githubFileUrl).toBeNull()
+    expect(code.githubRepoUrl).toBe(
+      `https://github.com/Second/Repo/tree/${secondCommit}`
+    )
+
+    const bare = await codeFor("Second__Repo/missing.py", twoRepos())
+    expect(bare.githubRepoUrl).toBe(
+      `https://github.com/Second/Repo/tree/${secondCommit}`
+    )
+  })
+
+  it("links checks/ as normal repository content", async () => {
+    const resolved = await codeFor(
+      "code/Only__Repo/checks/result.csv",
+      singleRepo()
+    )
+    expect(resolved.kind).toBe("file")
+    expect(resolved.repo).toBe("Only__Repo")
+    expect(resolved.githubFileUrl).toBe(
+      `https://github.com/Only/Repo/blob/${commit}/checks/result.csv`
+    )
+    expect(resolved.githubRepoUrl).toBe(
+      `https://github.com/Only/Repo/tree/${commit}`
+    )
+
+    // `checks/` is not a reserved transient tree, so a missing path there
+    // follows the same single-repository guess as any other bare file.
+    const missing = await codeFor("checks/missing.csv", singleRepo())
+    expect(missing.kind).toBe("missing")
+    expect(missing.githubFileUrl).toBeNull()
+    expect(missing.githubRepoUrl).toBe(
+      `https://github.com/Only/Repo/tree/${commit}`
+    )
+  })
+
+  it("recognises common source and data extensions for bare anchors", async () => {
+    for (const file of [
+      "src/module.f90",
+      "src/module.f",
+      "src/module.for",
+      "src/module.cxx",
+      "src/module.cc",
+      "src/module.hpp",
+      "src/boot.s",
+      "src/boot.asm",
+      "data/results.tsv",
+      "data/config.xml",
+      "web/index.html",
+      "web/site.css",
+      "web/theme.scss",
+      "db/schema.sql",
+      "scripts/run.jl",
+      "scripts/run.lua",
+      "scripts/run.pl",
+      "scripts/run.rb",
+      "src/main.go",
+      "src/main.rs",
+      "src/main.swift",
+      "src/main.kt",
+      "src/main.scala",
+    ]) {
+      const code = await codeFor(file, singleRepo())
+      expect(code.kind, file).toBe("missing")
+      expect(code.githubFileUrl, file).toBeNull()
+      expect(code.githubRepoUrl, file).toBe(
+        `https://github.com/Only/Repo/tree/${commit}`
+      )
+    }
+  })
+
+  it("emits no GitHub link for a check artifact that resolves inside a repo", async () => {
+    const code = await codeFor("code/Only__Repo/out/check.csv", singleRepo())
+    expect(code.kind).toBe("check")
+    expect(code.repo).toBe("Only__Repo")
+    expect(code.githubFileUrl).toBeNull()
+    expect(code.githubRepoUrl).toBeNull()
+    expect(code.githubCommit).toBeNull()
+  })
+})
+
+describe("real review-data GitHub fallback", () => {
+  const root =
+    process.env.REVIEW_DATA_ROOT ?? path.join(process.cwd(), "review-data")
+
+  it.skipIf(!existsSync(path.join(root, "r16fix5", "batch.json")))(
+    "derives repository URLs for a manifest without url fields",
+    async () => {
+      const loaded = await loadItems("r16fix5", { root })
+      const paper = loaded.papers.find(
+        (candidate) => candidate.manifest.id === "1171"
+      )
+      expect(paper).toBeDefined()
+      if (!paper) {
+        return
+      }
+      const paperDir = joinWithin(loaded.batch.dir, paper.manifest.dir)
+      expect(paperDir).not.toBeNull()
+      if (!paperDir) {
+        return
+      }
+      // Exercise the legacy fallback even if the local mount was prepared by a
+      // newer script that already records a URL.
+      const legacyCode = paper.manifest.code.map((repo) => ({
+        ...repo,
+        url: undefined,
+      }))
+      const roots = evidenceRootsFromPaper(loaded.batch.dir, {
+        manifest: { ...paper.manifest, code: legacyCode },
+        dir: paperDir,
+      })
+      expect(roots.repos[0]?.url).toBe("https://github.com/Legenddddd/MEL")
+      expect(roots.repos[0]?.commit).toBe(
+        "e7bbd775d38a1be90c61465ca1af0f55ac895625"
+      )
+    }
+  )
 })
 
 describe("ripgrep search", () => {

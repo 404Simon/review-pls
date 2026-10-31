@@ -3,7 +3,7 @@
   "batchId": "review-fixture-b",
   "label": "Synthetic evidence fixture B",
   "generatedAt": "2026-10-30T12:00:00.000Z",
-  "contentSha256": "e706ffaf6fd61f377811f2413ffbcf8870717fab4604a81a9a0c65ed20f86079",
+  "contentSha256": "d1a2fab1bd827232fb7fa8c3bd32db02abc7354eef430fbf4d27b4e81db5cb85",
   "protocol": {
     "name": "evidence-fixture",
     "version": "1",
@@ -34,7 +34,8 @@
           "name": "fixturerepo",
           "dir": "code/fixturerepo",
           "role": "repository",
-          "commit": "0123456789abcdef0123456789abcdef01234567"
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "url": "https://github.com/example/fixturerepo"
         }
       ],
       "sha256": {
@@ -77,7 +78,8 @@
           "name": "repo2",
           "dir": "code/repo2",
           "role": "repository",
-          "commit": "89abcdef0123456789abcdef0123456789abcdef"
+          "commit": "89abcdef0123456789abcdef0123456789abcdef",
+          "url": "https://github.com/example/repo2"
         }
       ],
       "sha256": {
@@ -120,12 +122,31 @@
           "name": "repo2",
           "dir": "code/repo2",
           "role": "repository",
-          "commit": "89abcdef0123456789abcdef0123456789abcdef"
+          "commit": "89abcdef0123456789abcdef0123456789abcdef",
+          "url": "https://github.com/example/repo2"
+        },
+        {
+          "name": "uncommitted__repo",
+          "dir": "code/uncommitted__repo",
+          "role": "repository",
+          "commit": null
+        },
+        {
+          "name": "supplement",
+          "dir": "code/supplement",
+          "role": "supplement",
+          "commit": null
+        },
+        {
+          "name": "workspace",
+          "dir": "code/workspace",
+          "role": "workspace",
+          "commit": null
         }
       ],
       "sha256": {
         "overlap": "4d5914a2dd72fe4d840da1f76e2236674e129f72461c0a43c2b06ae4e165024b",
-        "agentFindings": "ca71d6885379adee624ce3c9e5a5f4bfce5eb21cca0e667ed31c82bc204ac2e3",
+        "agentFindings": "6df0657e11e5624cb81a1a31454930d18be3cd0d12affadd4e8e7e589810f29f",
         "auditowlFindings": "8a639186ec5426bf03fa3fabf332b732772e3892952a86febf26d925517f13c4"
       },
       "counts": {

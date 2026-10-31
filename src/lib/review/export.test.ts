@@ -8,6 +8,7 @@ import {
   reviewDatasetExportSchema,
   type ExportInput,
 } from "@/lib/review/export"
+import { githubTreeUrl } from "@/lib/review/github"
 import type { LoadedBatch, LoadedItems } from "@/lib/review/load"
 import type {
   Claim,
@@ -305,6 +306,85 @@ describe("buildReviewDataset", () => {
       "u1",
       "u2",
     ])
+  })
+
+  it("materializes the GitHub URL for legacy manifests without one", () => {
+    const legacyManifest: PaperManifest = {
+      ...manifest,
+      code: [
+        {
+          name: "Owner__Repo",
+          dir: "code/Owner__Repo",
+          role: "repository",
+          commit: "abc123",
+        },
+        {
+          name: "supplement",
+          dir: "code/supplement",
+          role: "supplement",
+          commit: null,
+        },
+      ],
+    }
+    const dataset = buildReviewDataset(
+      input({
+        loaded: {
+          ...loaded,
+          papers: [{ ...paperReview, manifest: legacyManifest }],
+        },
+      })
+    )
+    expect(dataset.papers[0]?.repositories).toEqual([
+      {
+        name: "Owner__Repo",
+        dir: "code/Owner__Repo",
+        role: "repository",
+        commit: "abc123",
+        url: "https://github.com/Owner/Repo",
+      },
+      {
+        name: "supplement",
+        dir: "code/supplement",
+        role: "supplement",
+        commit: null,
+        url: null,
+      },
+    ])
+  })
+
+  it("keeps the repository URL when the commit is null", () => {
+    const uncommittedManifest: PaperManifest = {
+      ...manifest,
+      code: [
+        {
+          name: "Owner__Repo",
+          dir: "code/Owner__Repo",
+          role: "repository",
+          commit: null,
+        },
+      ],
+    }
+    const dataset = buildReviewDataset(
+      input({
+        loaded: {
+          ...loaded,
+          papers: [{ ...paperReview, manifest: uncommittedManifest }],
+        },
+      })
+    )
+    // The URL identifies the repository. The commit stays null, so consumers
+    // must not turn it into a commit-pinned tree or blob link.
+    const repository = dataset.papers[0]?.repositories[0]
+    expect(repository).toEqual({
+      name: "Owner__Repo",
+      dir: "code/Owner__Repo",
+      role: "repository",
+      commit: null,
+      url: "https://github.com/Owner/Repo",
+    })
+    if (repository) {
+      expect(githubTreeUrl(repository)).toBeNull()
+    }
   })
 
   it("is deterministic regardless of input order", () => {

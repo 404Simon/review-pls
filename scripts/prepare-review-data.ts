@@ -16,6 +16,7 @@ import {
 import path from "node:path"
 
 import { buildReviewData } from "@/lib/review/build"
+import { githubRepoUrlFromName } from "@/lib/review/github"
 import { batchContentFingerprint, sha256Bytes } from "@/lib/review/hash"
 import {
   batchSchema,
@@ -488,11 +489,15 @@ async function listCodeRepos(
       continue
     }
     const commit = revisions[entry.name] ?? null
+    const role = codeRepoRole(entry.name, commit)
     repos.push({
       name: entry.name,
       dir: `code/${entry.name}`,
-      role: codeRepoRole(entry.name, commit),
+      role,
       commit,
+      ...(role === "repository"
+        ? { url: githubRepoUrlFromName(entry.name) }
+        : {}),
     })
   }
   repos.sort((left, right) => (left.name < right.name ? -1 : 1))

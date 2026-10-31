@@ -9,7 +9,7 @@
       "title": "Admin claim release target",
       "severity": "low",
       "status": "finding",
-      "file": "code/repo2/train.py",
+      "file": "code/repo2/not-there.py",
       "line_start": 1,
       "line_end": 2,
       "quote": "def load(path):\n    with open(path) as handle:",

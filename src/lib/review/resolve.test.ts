@@ -232,6 +232,29 @@ describe("resolveEvidence", () => {
     )
   })
 
+  it("rejects URL-like paths without falling back to a basename", async () => {
+    await writeFileAt("papers/p1/code/owner__repo/train.py", "x = 1\n")
+    for (const file of [
+      "https:/example.org/train.py",
+      "http:/example.org/train.py",
+      "mailto:someone@example.org",
+      "s3:/bucket/train.py",
+      "file:/tmp/train.py",
+    ]) {
+      const result = await resolveEvidence({
+        roots,
+        side: "agent",
+        finding: { file },
+      })
+      expect(result.kind, file).toBe("missing")
+      expect(result.absolutePath, file).toBeNull()
+      expect(
+        result.attempts.map((attempt) => attempt.step),
+        file
+      ).not.toContain("unique-basename")
+    }
+  })
+
   it("rejects traversal without falling back to a basename", async () => {
     await writeFileAt("papers/p1/code/owner__repo/secret.py", "secret\n")
     const result = await resolveEvidence({

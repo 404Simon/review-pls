@@ -6,7 +6,15 @@ import type { Dirent, Stats } from "node:fs"
 import { z } from "zod"
 
 import {
+  githubBlobUrl,
+  githubTreeUrl,
+  isValidGithubCommit,
+  resolveGithubRepoUrl,
+} from "@/lib/review/github"
+import {
   hasTraversal,
+  hasUriSchemePrefix,
+  hasWindowsDrivePrefix,
   isIgnoredEntry,
   isIgnoredRelativePath,
   isWithin,
@@ -14,6 +22,7 @@ import {
 } from "@/lib/review/paths"
 import {
   resolveEvidence,
+  type EvidenceKind,
   type QuoteMatch,
   type ResolutionAttempt,
   type ResolveRoots,
@@ -117,6 +126,8 @@ export interface EvidenceRepoRoot {
   name: string
   dir: string
   commit: string | null
+  /** Canonical GitHub repository URL, when this repo is linkable. */
+  url: string | null
 }
 
 export interface EvidenceRoots {
@@ -153,7 +164,23 @@ export function evidenceRootsFromPaper(
     paperDir: paper.dir,
     repos: paper.manifest.code.flatMap((repo) => {
       const dir = resolveDir(repo.dir)
-      return dir ? [{ name: repo.name, dir, commit: repo.commit }] : []
+      return dir
+        ? [
+            {
+              name: repo.name,
+              dir,
+              commit: repo.commit,
+              url:
+                repo.role === "repository"
+                  ? resolveGithubRepoUrl({
+                      name: repo.name,
+                      url: repo.url,
+                      commit: repo.commit,
+                    })
+                  : null,
+            },
+          ]
+        : []
     }),
     runDir,
     auditowlDir,
@@ -397,6 +424,12 @@ export interface CodeEvidence {
   externalUrl: string | null
   repo: string | null
   commit: string | null
+  /** GitHub blob URL at the reviewed commit, with the cited line range. */
+  githubFileUrl: string | null
+  /** GitHub tree URL at the reviewed commit. */
+  githubRepoUrl: string | null
+  /** Commit used for the GitHub links, if any. */
+  githubCommit: string | null
   lineStart: number | null
   lineEnd: number | null
   quote: string | null
@@ -407,6 +440,204 @@ export interface CodeEvidence {
   preview: CodePreview | null
   treeUrl: string | null
   searchUrl: string | null
+}
+
+function isGithubLinkable(
+  repo: EvidenceRepoRoot | null
+): repo is EvidenceRepoRoot {
+  return repo !== null && repo.url !== null && isValidGithubCommit(repo.commit)
+}
+
+/**
+ * Transient or non-repository trees that must never be attributed to a
+ * repository. `checks/` is deliberately absent: it is a normal directory name
+ * inside a repository, and a resolved file there is linked like any other code.
+ */
+const RESERVED_EVIDENCE_SEGMENTS = new Set([
+  "out",
+  "_audit_code",
+  "run",
+  "auditowl",
+  "supplement",
+  "workspace",
+])
+
+const RESERVED_EVIDENCE_FILES = new Set([
+  "paper.pdf",
+  "paper_text.txt",
+  "paper.json",
+])
+
+/**
+ * A bare relative path is only treated as repo evidence when it looks like a
+ * source or data file. Extension-less names, archives and binaries are too
+ * ambiguous to guess a repository from.
+ */
+const MISSING_ANCHOR_EXTENSIONS = new Set([
+  ".asm",
+  ".bash",
+  ".c",
+  ".cc",
+  ".cfg",
+  ".conf",
+  ".cpp",
+  ".cs",
+  ".css",
+  ".csv",
+  ".cu",
+  ".cuh",
+  ".cxx",
+  ".f",
+  ".f90",
+  ".for",
+  ".go",
+  ".h",
+  ".hpp",
+  ".html",
+  ".ini",
+  ".ipynb",
+  ".java",
+  ".jl",
+  ".js",
+  ".json",
+  ".jsx",
+  ".kt",
+  ".kts",
+  ".lua",
+  ".m",
+  ".md",
+  ".mjs",
+  ".mm",
+  ".php",
+  ".pl",
+  ".pm",
+  ".py",
+  ".pyi",
+  ".r",
+  ".rb",
+  ".rs",
+  ".rst",
+  ".s",
+  ".scala",
+  ".scss",
+  ".sh",
+  ".sql",
+  ".swift",
+  ".tex",
+  ".toml",
+  ".ts",
+  ".tsv",
+  ".tsx",
+  ".txt",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".zsh",
+])
+
+function isReservedMissingAnchor(segments: readonly string[]): boolean {
+  if (
+    segments.some(
+      (segment) =>
+        RESERVED_EVIDENCE_SEGMENTS.has(segment) ||
+        segment.startsWith("_verifier_code")
+    )
+  ) {
+    return true
+  }
+  const basename = segments[segments.length - 1] ?? ""
+  if (RESERVED_EVIDENCE_FILES.has(basename)) {
+    return true
+  }
+  return segments.length === 1 && basename === "audit.md"
+}
+
+/**
+ * Identify the repository a *missing* anchor most likely belongs to. This is a
+ * deliberately conservative guess: evidence paths that name transient trees,
+ * absolute paths, URL-like paths, unknown `code/<repo>/` prefixes or ambiguous
+ * bare names get no link instead of a misleading repository.
+ */
+function repoForFindingPath(
+  roots: EvidenceRoots,
+  raw: string
+): EvidenceRepoRoot | null {
+  const normalized = raw
+    .replace(/\\/g, "/")
+    .replace(/^\.\/+/, "")
+    .trim()
+  if (
+    normalized === "" ||
+    normalized.startsWith("/") ||
+    hasWindowsDrivePrefix(normalized) ||
+    hasUriSchemePrefix(normalized)
+  ) {
+    return null
+  }
+  const segments = normalized.split("/")
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    return null
+  }
+  if (isReservedMissingAnchor(segments)) {
+    return null
+  }
+
+  const prefixed = roots.repos.filter((repo) => {
+    const dirName = path.posix.basename(repo.dir.replace(/\\/g, "/"))
+    return (
+      normalized.startsWith(`code/${repo.name}/`) ||
+      normalized.startsWith(`${repo.name}/`) ||
+      normalized.startsWith(`code/${dirName}/`) ||
+      normalized.startsWith(`${dirName}/`)
+    )
+  })
+  if (prefixed.length === 1) {
+    return prefixed[0]
+  }
+  if (prefixed.length > 1) {
+    return null
+  }
+  // An explicit code/ prefix naming no known repository is a data problem, not
+  // a reason to attribute the anchor to the only repo that happens to exist.
+  if (segments[0] === "code") {
+    return null
+  }
+  if (roots.repos.length !== 1) {
+    return null
+  }
+  const extension = path.posix.extname(normalized).toLowerCase()
+  return MISSING_ANCHOR_EXTENSIONS.has(extension) ? roots.repos[0] : null
+}
+
+function githubLinksForResolved(
+  kind: EvidenceKind,
+  repo: EvidenceRepoRoot | null,
+  absolutePath: string,
+  lineStart: number | null,
+  lineEnd: number | null
+): Pick<CodeEvidence, "githubFileUrl" | "githubRepoUrl" | "githubCommit"> {
+  if (kind !== "file" || !isGithubLinkable(repo)) {
+    return { githubFileUrl: null, githubRepoUrl: null, githubCommit: null }
+  }
+  const repoRelative = toPosix(path.relative(repo.dir, absolutePath))
+  return {
+    githubFileUrl: githubBlobUrl(repo, repoRelative, lineStart, lineEnd),
+    githubRepoUrl: githubTreeUrl(repo),
+    githubCommit: repo.commit,
+  }
+}
+
+function githubLinksForMissing(
+  repo: EvidenceRepoRoot | null
+): Pick<CodeEvidence, "githubFileUrl" | "githubRepoUrl" | "githubCommit"> {
+  if (!isGithubLinkable(repo)) {
+    return { githubFileUrl: null, githubRepoUrl: null, githubCommit: null }
+  }
+  return {
+    githubFileUrl: null,
+    githubRepoUrl: githubTreeUrl(repo),
+    githubCommit: repo.commit,
+  }
 }
 
 function repoForPath(
@@ -581,6 +812,9 @@ async function buildCodeEvidence(
     quoteMatch: resolved.quoteMatch,
     missingAttempts: sanitizeAttempts(resolved.attempts, roots.paperDir),
     note: resolved.note,
+    githubFileUrl: null,
+    githubRepoUrl: null,
+    githubCommit: null,
   }
 
   if (resolved.kind === "url") {
@@ -600,14 +834,16 @@ async function buildCodeEvidence(
   }
 
   if (!resolved.absolutePath) {
+    const missingRepo = repoForFindingPath(roots, finding.file)
     return {
       ...base,
       kind: "missing",
       relativePath: null,
       fileUrl: null,
       externalUrl: null,
-      repo: null,
-      commit: null,
+      repo: missingRepo?.name ?? null,
+      commit: missingRepo?.commit ?? null,
+      ...githubLinksForMissing(missingRepo),
       closestMatches: await closestMatchesFor(
         roots,
         finding.file,
@@ -638,6 +874,7 @@ async function buildCodeEvidence(
       externalUrl: null,
       repo: repo?.name ?? null,
       commit: repo?.commit ?? null,
+      ...githubLinksForMissing(repo),
       closestMatches: await closestMatchesFor(
         roots,
         finding.file,
@@ -676,6 +913,13 @@ async function buildCodeEvidence(
     externalUrl: null,
     repo: repo?.name ?? null,
     commit: repo?.commit ?? null,
+    ...githubLinksForResolved(
+      resolved.kind,
+      repo,
+      absolutePath,
+      resolved.lineStart,
+      resolved.lineEnd
+    ),
     closestMatches: [],
     preview,
     note:
