@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ExternalLink,
+  Folder,
   GitBranch,
   Layers,
   ShieldCheck,
@@ -31,7 +32,7 @@ import {
   parseReviewFilters,
 } from "@/lib/review/filters"
 import { formatItemKind } from "@/lib/review/format"
-import { githubCommitUrl, githubTreeUrl } from "@/lib/review/github"
+import { githubTreeUrl } from "@/lib/review/github"
 import { ITEM_KINDS } from "@/lib/review/ids"
 import {
   isMissingReviewData,
@@ -249,8 +250,9 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
                 Repositories and revisions
               </CardTitle>
               <CardDescription>
-                Open a repository on GitHub at the reviewed commit. Evidence
-                paths always resolve inside the local snapshots.
+                Open a repository on GitHub at the reviewed commit, or browse
+                local snapshots that have no remote. Evidence paths always
+                resolve inside the local snapshots.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-2">
@@ -268,10 +270,10 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
                   }
                   const githubUrl =
                     repo.role === "repository" ? githubTreeUrl(githubRef) : null
-                  const commitUrl =
-                    repo.role === "repository"
-                      ? githubCommitUrl(githubRef)
-                      : null
+                  const filesUrl = `${basePath}/files/${repo.dir
+                    .split("/")
+                    .map(encodeURIComponent)
+                    .join("/")}`
                   const shortCommit = repo.commit?.slice(0, 12)
                   return (
                     <div
@@ -299,9 +301,18 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
                             />
                           </a>
                         ) : (
-                          <span className="truncate text-sm font-medium">
-                            {repo.name}
-                          </span>
+                          <Link
+                            href={filesUrl}
+                            title={`Browse ${repo.name} files`}
+                            aria-label={`Browse ${repo.name} files`}
+                            className="flex min-w-0 items-center gap-1.5 text-sm font-medium underline-offset-4 hover:underline"
+                          >
+                            <Folder
+                              data-icon="inline-start"
+                              className="shrink-0"
+                            />
+                            <span className="truncate">{repo.name}</span>
+                          </Link>
                         )}
                         <span className="font-mono text-xs break-all text-muted-foreground">
                           {repo.dir}
@@ -309,17 +320,17 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">{repo.role}</Badge>
-                        {commitUrl && shortCommit ? (
+                        {githubUrl && shortCommit ? (
                           <Badge
                             variant="secondary"
                             className="font-mono"
                             render={
                               <a
-                                href={commitUrl}
+                                href={githubUrl}
                                 target="_blank"
                                 rel="noreferrer noopener"
-                                title={`Open commit ${repo.commit} on GitHub`}
-                                aria-label={`Open commit ${shortCommit} on GitHub`}
+                                title={`Open tree at ${repo.commit} on GitHub`}
+                                aria-label={`Open tree at ${shortCommit} on GitHub`}
                               />
                             }
                           >

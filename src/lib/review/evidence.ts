@@ -1772,15 +1772,22 @@ export interface ResolvedPaperFile {
   size: number
 }
 
+interface ResolvedPaperEntry {
+  absolutePath: string
+  realPath: string
+  relativePath: string
+  info: Stats
+}
+
 /**
- * Resolve a paper-relative evidence path with lexical and realpath containment.
- * Returns null for missing files, directories, and any symlink escape.
+ * Resolve a paper-relative path with lexical and realpath containment. Returns
+ * null for missing entries, traversal attempts and any symlink escape.
  */
-export async function resolvePaperFilePath(
+async function resolvePaperEntry(
   paperDir: string,
   batchRoot: string,
   relative: string
-): Promise<ResolvedPaperFile | null> {
+): Promise<ResolvedPaperEntry | null> {
   if (hasTraversal(relative) || isIgnoredRelativePath(relative)) {
     return null
   }
@@ -1810,14 +1817,32 @@ export async function resolvePaperFilePath(
   } catch {
     return null
   }
-  if (!info.isFile()) {
-    return null
-  }
   return {
     absolutePath: lexical,
     realPath: realTarget,
     relativePath: toPosix(path.relative(paperDir, lexical)),
-    size: info.size,
+    info,
+  }
+}
+
+/**
+ * Resolve a paper-relative evidence path with lexical and realpath containment.
+ * Returns null for missing files, directories, and any symlink escape.
+ */
+export async function resolvePaperFilePath(
+  paperDir: string,
+  batchRoot: string,
+  relative: string
+): Promise<ResolvedPaperFile | null> {
+  const entry = await resolvePaperEntry(paperDir, batchRoot, relative)
+  if (!entry || !entry.info.isFile()) {
+    return null
+  }
+  return {
+    absolutePath: entry.absolutePath,
+    realPath: entry.realPath,
+    relativePath: entry.relativePath,
+    size: entry.info.size,
   }
 }
 
@@ -1832,6 +1857,70 @@ export interface TreeEntry {
 export interface TreeResult {
   entries: TreeEntry[]
   truncated: boolean
+}
+
+/**
+ * List one paper-relative directory without recursing. Used by the in-app file
+ * browser for local code entries that have no GitHub target. Returns null for
+ * missing paths, files and any symlink escape.
+ */
+export async function listPaperDirectory(
+  paperDir: string,
+  batchRoot: string,
+  relative: string
+): Promise<TreeResult | null> {
+  const entry = await resolvePaperEntry(paperDir, batchRoot, relative)
+  if (!entry || !entry.info.isDirectory()) {
+    return null
+  }
+  let dirents: Dirent[]
+  try {
+    dirents = await readdir(entry.realPath, { withFileTypes: true })
+  } catch {
+    return null
+  }
+  dirents.sort((a, b) => {
+    if (a.isDirectory() !== b.isDirectory()) {
+      return a.isDirectory() ? -1 : 1
+    }
+    return a.name.localeCompare(b.name)
+  })
+
+  const result: TreeResult = { entries: [], truncated: false }
+  for (const dirent of dirents) {
+    if (isIgnoredEntry(dirent.name) || dirent.isSymbolicLink()) {
+      continue
+    }
+    if (result.entries.length >= MAX_TREE_ENTRIES) {
+      result.truncated = true
+      break
+    }
+    const relativePath = toPosix(path.join(entry.relativePath, dirent.name))
+    if (dirent.isDirectory()) {
+      result.entries.push({
+        path: relativePath,
+        name: dirent.name,
+        type: "directory",
+        size: 0,
+        binary: false,
+      })
+    } else if (dirent.isFile()) {
+      const info = await stat(path.join(entry.realPath, dirent.name)).catch(
+        () => null
+      )
+      if (!info) {
+        continue
+      }
+      result.entries.push({
+        path: relativePath,
+        name: dirent.name,
+        type: "file",
+        size: info.size,
+        binary: isBinaryPath(dirent.name),
+      })
+    }
+  }
+  return result
 }
 
 interface TreeRoot {

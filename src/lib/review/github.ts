@@ -120,16 +120,6 @@ export function githubTreeUrl(repo: GithubRepoRef): string | null {
   return `${base}/tree/${commit}`
 }
 
-/** Commit page, or null when the manifest has no valid commit. */
-export function githubCommitUrl(repo: GithubRepoRef): string | null {
-  const base = resolveGithubRepoUrl(repo)
-  const commit = normalizedCommit(repo.commit)
-  if (!base || !commit) {
-    return null
-  }
-  return `${base}/commit/${commit}`
-}
-
 function encodeRepoPath(filePath: string): string | null {
   const normalized = filePath.replace(/^\.\//, "")
   if (normalized === "" || normalized.includes("\\")) {

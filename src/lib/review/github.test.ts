@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest"
 
 import {
   githubBlobUrl,
-  githubCommitUrl,
   githubRepoUrlFromName,
   githubTreeUrl,
   isValidGithubCommit,
@@ -151,16 +150,6 @@ describe("githubTreeUrl", () => {
 
   it("returns null when the repository is not linkable", () => {
     expect(githubTreeUrl({ name: "fixturerepo", commit })).toBeNull()
-  })
-})
-
-describe("githubCommitUrl", () => {
-  it("builds the commit page only for a valid commit", () => {
-    expect(githubCommitUrl(repo)).toBe(
-      `https://github.com/Legenddddd/MEL/commit/${commit}`
-    )
-    expect(githubCommitUrl({ ...repo, commit: null })).toBeNull()
-    expect(githubCommitUrl({ ...repo, commit: "main" })).toBeNull()
   })
 })
 

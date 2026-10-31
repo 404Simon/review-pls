@@ -279,17 +279,17 @@ test("paper page links repositories to GitHub at the reviewed commit", async ({
   await expect(repoLink).toHaveAttribute("rel", "noreferrer noopener")
 
   const commitLink = page.getByRole("link", {
-    name: "Open commit 0123456789ab on GitHub",
+    name: "Open tree at 0123456789ab on GitHub",
   })
   await expect(commitLink).toHaveAttribute(
     "href",
-    "https://github.com/example/fixturerepo/commit/0123456789abcdef0123456789abcdef01234567"
+    "https://github.com/example/fixturerepo/tree/0123456789abcdef0123456789abcdef01234567"
   )
   await expect(commitLink).toHaveAttribute("target", "_blank")
   await expect(commitLink).toHaveAttribute("rel", "noreferrer noopener")
 })
 
-test("paper page leaves supplementary and revisionless rows plain", async ({
+test("paper page links non-GitHub code entries to the local file browser", async ({
   page,
   request,
 }) => {
@@ -299,15 +299,35 @@ test("paper page leaves supplementary and revisionless rows plain", async ({
   await expect(
     page.getByRole("link", { name: /Open repo2 on GitHub/ })
   ).toBeVisible()
-  await expect(page.getByRole("link", { name: /supplement/ })).toHaveCount(0)
   await expect(
-    page.getByRole("link", { name: /uncommitted__repo/ })
-  ).toHaveCount(0)
+    page.getByRole("link", { name: "Browse supplement files" })
+  ).toHaveAttribute(
+    "href",
+    "/batches/review-fixture-b/papers/1003/files/code/supplement"
+  )
   await expect(
-    page.getByRole("link", { name: "workspace", exact: true })
-  ).toHaveCount(0)
+    page.getByRole("link", { name: "Browse uncommitted__repo files" })
+  ).toHaveAttribute(
+    "href",
+    "/batches/review-fixture-b/papers/1003/files/code/uncommitted__repo"
+  )
+  await expect(
+    page.getByRole("link", { name: "Browse workspace files" })
+  ).toHaveAttribute(
+    "href",
+    "/batches/review-fixture-b/papers/1003/files/code/workspace"
+  )
   await expect(page.getByText("no revision").first()).toBeVisible()
   await expect(page.getByRole("link", { name: /no revision/ })).toHaveCount(0)
+
+  await page.getByRole("link", { name: "Browse supplement files" }).click()
+  await expect(
+    page.getByRole("heading", { name: "Files in supplement" })
+  ).toBeVisible()
+  await expect(page.getByRole("link", { name: /data\.csv/ })).toHaveAttribute(
+    "href",
+    "/api/evidence/review-fixture-b/1003/code/supplement/data.csv"
+  )
 })
 
 test("renders code, checks, paper and report evidence", async ({

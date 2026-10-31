@@ -23,6 +23,7 @@ import {
   isBinaryPath,
   isIgnoredEntry,
   isIgnoredRelativePath,
+  listPaperDirectory,
   listTree,
   MAX_CSV_ROWS,
   parseCsv,
@@ -320,6 +321,71 @@ describe("resolvePaperFilePath", () => {
   it("rejects directories and missing files", async () => {
     expect(await resolvePaperFilePath(paper, batch, "code")).toBeNull()
     expect(await resolvePaperFilePath(paper, batch, "missing.txt")).toBeNull()
+  })
+})
+
+describe("listPaperDirectory", () => {
+  let root: string
+  let batch: string
+  let paper: string
+
+  beforeAll(async () => {
+    root = await mkdtemp(path.join(tmpdir(), "evidence-dir-"))
+    batch = path.join(root, "batch")
+    paper = path.join(batch, "papers", "p1")
+    await mkdir(path.join(paper, "code", "supplement", "nested"), {
+      recursive: true,
+    })
+    await writeFile(path.join(paper, "code", "supplement", "paper.pdf"), "%PDF")
+    await writeFile(
+      path.join(paper, "code", "supplement", "nested", "notes.txt"),
+      "notes\n"
+    )
+    await mkdir(path.join(paper, "code", "supplement", "node_modules"), {
+      recursive: true,
+    })
+    await writeFile(
+      path.join(paper, "code", "supplement", ".env"),
+      "SECRET=1\n"
+    )
+    await writeFile(path.join(root, "secret.txt"), "secret")
+    await symlink(
+      path.join(root, "secret.txt"),
+      path.join(paper, "code", "supplement", "escape.txt")
+    )
+  })
+
+  afterAll(async () => {
+    await rm(root, { recursive: true, force: true })
+  })
+
+  it("lists one directory without ignored entries or symlinks", async () => {
+    const listing = await listPaperDirectory(paper, batch, "code/supplement")
+    expect(listing?.truncated).toBe(false)
+    expect(listing?.entries.map((entry) => entry.name)).toEqual([
+      "nested",
+      "paper.pdf",
+    ])
+    expect(listing?.entries[0]).toMatchObject({
+      type: "directory",
+      path: "code/supplement/nested",
+    })
+    expect(listing?.entries[1]).toMatchObject({
+      type: "file",
+      path: "code/supplement/paper.pdf",
+      size: 4,
+    })
+  })
+
+  it("rejects files, traversal and symlink escapes", async () => {
+    expect(
+      await listPaperDirectory(paper, batch, "code/supplement/paper.pdf")
+    ).toBeNull()
+    expect(await listPaperDirectory(paper, batch, "../..")).toBeNull()
+    expect(
+      await listPaperDirectory(paper, batch, "code/supplement/escape.txt")
+    ).toBeNull()
+    expect(await listPaperDirectory(paper, batch, "missing")).toBeNull()
   })
 })
 
