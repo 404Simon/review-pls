@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   githubBlobUrl,
+  githubRepoLabel,
   githubRepoUrlFromName,
   githubTreeUrl,
   isValidGithubCommit,
@@ -109,6 +110,31 @@ describe("resolveGithubRepoUrl", () => {
       "",
     ]) {
       expect(resolveGithubRepoUrl({ name: "Owner__Repo", url }), url).toBeNull()
+    }
+  })
+})
+
+describe("githubRepoLabel", () => {
+  it("renders the GitHub slug instead of the filesystem name", () => {
+    expect(githubRepoLabel({ name: "Legenddddd__MEL" })).toBe("Legenddddd/MEL")
+  })
+
+  it("prefers the canonical URL when the manifest has one", () => {
+    expect(
+      githubRepoLabel({
+        name: "ignored__name",
+        url: "https://github.com/example/fixturerepo/",
+      })
+    ).toBe("example/fixturerepo")
+  })
+
+  it("keeps the local name when there is no GitHub target", () => {
+    for (const repo of [
+      { name: "fixturerepo" },
+      { name: "fixturerepo", url: null },
+      { name: "fixturerepo", url: "https://example.org/not-github" },
+    ]) {
+      expect(githubRepoLabel(repo), repo.name).toBe("fixturerepo")
     }
   })
 })

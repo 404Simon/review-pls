@@ -96,6 +96,22 @@ export function resolveGithubRepoUrl(repo: GithubRepoRef): string | null {
   return githubRepoUrlFromName(repo.name)
 }
 
+/**
+ * Label for a link to the repository on GitHub.
+ *
+ * Manifest names are filesystem-safe, so a repository is stored as
+ * `owner__repo`. GitHub itself calls it `owner/repo`, which is what the link
+ * should read. Repositories without a canonical GitHub URL keep their local
+ * name, because there is no `owner/repo` to show.
+ */
+export function githubRepoLabel(repo: GithubRepoRef): string {
+  const url = resolveGithubRepoUrl(repo)
+  if (!url) {
+    return repo.name
+  }
+  return new URL(url).pathname.replace(/^\/+/, "")
+}
+
 export function isValidGithubCommit(
   value: string | null | undefined
 ): value is string {

@@ -268,7 +268,7 @@ test("paper page links repositories to GitHub at the reviewed commit", async ({
   await page.goto("/batches/review-fixture/papers/1001")
 
   const repoLink = page.getByRole("link", {
-    name: "Open fixturerepo on GitHub",
+    name: "Open example/fixturerepo on GitHub",
   })
   await expect(repoLink).toBeVisible()
   await expect(repoLink).toHaveAttribute(
@@ -300,7 +300,7 @@ test("paper page links non-GitHub code entries to the local file browser", async
   await page.goto("/batches/review-fixture-b/papers/1003")
 
   await expect(
-    page.getByRole("link", { name: /Open repo2 on GitHub/ })
+    page.getByRole("link", { name: "Open example/repo2 on GitHub" })
   ).toBeVisible()
   await expect(
     page.getByRole("link", { name: "Browse supplement files" })
@@ -402,7 +402,7 @@ test("item page links the paper PDF and repositories", async ({
   await expect(pdfLink).toHaveAttribute("rel", "noreferrer noopener")
 
   const repoLink = page.getByRole("link", {
-    name: "Open fixturerepo on GitHub",
+    name: "Open example/fixturerepo on GitHub",
   })
   await expect(repoLink).toHaveAttribute(
     "href",

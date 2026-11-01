@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { GithubIcon } from "@/components/review/github-icon"
 import { buttonVariants } from "@/components/ui/button"
-import { githubTreeUrl } from "@/lib/review/github"
+import { githubRepoLabel, githubTreeUrl } from "@/lib/review/github"
 import type { CodeRepoManifest } from "@/lib/review/types"
 
 /**
@@ -31,14 +31,16 @@ export function PaperActions({
         Open PDF
       </a>
       {repositories.map((repo) => {
+        const repoRef = {
+          name: repo.name,
+          url: repo.url,
+          commit: repo.commit,
+        }
         const githubUrl =
-          repo.role === "repository"
-            ? githubTreeUrl({
-                name: repo.name,
-                url: repo.url,
-                commit: repo.commit,
-              })
-            : null
+          repo.role === "repository" ? githubTreeUrl(repoRef) : null
+        // GitHub links read `owner/repo`; the local file browser keeps the
+        // manifest directory name, which is what it actually renders.
+        const githubLabel = githubUrl ? githubRepoLabel(repoRef) : repo.name
         const filesUrl = `${filesBase}/${repo.dir
           .split("/")
           .map(encodeURIComponent)
@@ -49,12 +51,12 @@ export function PaperActions({
             href={githubUrl}
             target="_blank"
             rel="noreferrer noopener"
-            title={`Open ${repo.name} on GitHub`}
-            aria-label={`Open ${repo.name} on GitHub`}
+            title={`Open ${githubLabel} on GitHub`}
+            aria-label={`Open ${githubLabel} on GitHub`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
             <GithubIcon data-icon="inline-start" />
-            <span className="max-w-56 truncate">{repo.name}</span>
+            <span className="max-w-56 truncate">{githubLabel}</span>
             <ExternalLink data-icon="inline-end" className="size-3" />
           </a>
         ) : (

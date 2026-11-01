@@ -3,7 +3,7 @@
   "batchId": "review-fixture",
   "label": "Synthetic evidence fixture",
   "generatedAt": "2026-10-30T12:00:00.000Z",
-  "contentSha256": "81321bdfa0e018e4354838c59f8176ef58064ea3bec99320a77da0b64e7fa12b",
+  "contentSha256": "783a2f95c32842794f521da1f006842726da9d8612f309f1287cfeec95a0bf45",
   "protocol": {
     "name": "evidence-fixture",
     "version": "1",
@@ -40,7 +40,7 @@
       ],
       "sha256": {
         "overlap": "742f844b9cf735dcb5df90b4e825d25419aab382381edd3d1e7f405ee2ef35ed",
-        "agentFindings": "62b78eabd86ae2819ccbb8a095d6f7c2d79e536883dc35968e9190f0805defc5",
+        "agentFindings": "701412d862601e94f9f65e68d326c29dbd75909e447a06835598af07676799f0",
         "auditowlFindings": "add5fe8d02204614d2c7c4c7a2fb5e00a7fbff7a9f2ff8e4c9b373c1ba895095"
       },
       "counts": {
