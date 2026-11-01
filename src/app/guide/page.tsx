@@ -1,19 +1,26 @@
 import {
-  BookOpen,
   CheckCircle2,
   ClipboardCheck,
-  Code2,
+  Compass,
+  FileSearch,
   FileText,
   GitCompare,
   Keyboard,
+  LayoutDashboard,
   Lock,
+  Mail,
   Scale,
   ShieldCheck,
+  Sparkles,
   StickyNote,
   Tags,
+  type LucideIcon,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
+import { SeverityBadge } from "@/components/review/severity-badge"
+import { StatusBadge } from "@/components/review/status-badge"
+import { TourStartButton } from "@/components/review/tour-start-button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Card,
   CardContent,
@@ -21,9 +28,67 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { SeverityBadge } from "@/components/review/severity-badge"
-import { StatusBadge } from "@/components/review/status-badge"
+import { getContactEmail } from "@/lib/contact-email"
+import { loadGuideExample, type GuideExample } from "@/lib/review/guide-example"
 import { SHORTCUTS } from "@/lib/review/shortcuts"
+import {
+  TOUR_ANCHORS,
+  TOUR_IDS,
+  TOURS,
+  type TourId,
+} from "@/lib/review/tour-routes"
+
+const TOUR_ICONS: Record<TourId, LucideIcon> = {
+  guide: Compass,
+  dashboard: LayoutDashboard,
+  paper: FileText,
+  item: ClipboardCheck,
+}
+
+const CHECKLIST = [
+  "Reserve the item. The claim is yours for two idle hours; it extends while the page is open and whenever a draft is saved.",
+  "Read the automated verification note. It usually says what was checked and what came back.",
+  "Take a look at the evidence. Beware that for obvious findings it might not be necessary.",
+  "Use the paper context excerpt when the finding depends on what the paper reports. A page reference is a pointer, not proof.",
+  "Compare both sides for a cluster or a related pair. Matching wording is not enough when the line ranges or the defects differ.",
+  "Decide and optionally add a concrete note naming the line, output or page that settled it. Save and close, or mark unsure if the evidence is genuinely incomplete.",
+] as const
+
+function exampleHref(
+  id: TourId,
+  example: GuideExample | null
+): string | undefined {
+  if (!example) {
+    return undefined
+  }
+  switch (id) {
+    case "paper":
+      return example.paperHref
+    case "item":
+      return example.itemHref
+    case "guide":
+    case "dashboard":
+      return undefined
+  }
+}
+
+function exampleTitle(
+  id: TourId,
+  example: GuideExample | null
+): string | undefined {
+  if (!example) {
+    return undefined
+  }
+  switch (id) {
+    case "paper":
+      return example.paperTitle
+    case "item":
+      return example.itemTitle
+    case "guide":
+    case "dashboard":
+      return undefined
+  }
+}
 
 function Definition({
   term,
@@ -40,36 +105,250 @@ function Definition({
   )
 }
 
-export default function GuidePage() {
+export default async function GuidePage() {
+  const contactEmail = getContactEmail()
+  const example = await loadGuideExample()
+
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <Badge variant="outline" className="w-fit">
-          <BookOpen data-icon="inline-start" />
-          Protocol guide
-        </Badge>
-        <h1 className="font-heading text-2xl font-medium text-balance sm:text-3xl">
-          How to review overlap and new findings
-        </h1>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          The workspace asks two questions. First, is the finding-level overlap
-          between AuditOwl and the review agent correct? Second, are the
-          findings we have on top of AuditOwl actual findings? Every page keeps
-          the evidence one click away so you can answer from the source, not
-          from the comparator.
-        </p>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-10">
+      <header
+        data-tour={TOUR_ANCHORS.guideIntro}
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex max-w-2xl flex-col gap-2">
+            <h1 className="font-heading text-2xl font-medium text-balance sm:text-3xl">
+              Thank you for checking our agent
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              This page explains what we are comparing, why your
+              decision matters and how the workspace is organised.
+            </p>
+          </div>
+          <TourStartButton tour="guide" />
+        </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      <section className="flex flex-col gap-3">
+        <h2 className="font-heading text-lg font-medium">
+          What are we doing here?
+        </h2>
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+          <p>
+            The authors of{" "}
+            <a
+              href="https://openreview.net/forum?id=xjCJY8Xxcm"
+              target="_blank"
+              rel="noreferrer noopener"
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              this paper
+            </a>{" "}
+            ran agentic reviews over 100 NeurIPS papers, looking for
+            reproducibility problems and general software bugs. Its finding
+            was uncomfortable: many of their claims, e.g. a headline number, cannot be traced back to the code that produces them.
+          </p>
+          <p>
+            We are repeating that exercise on ISMB papers, with an open-weight
+            model (DeepSeek V4.1 Flash 1017) on an HPC cluster and our own
+            improved runtime/harness (original authors just used Claude Code).
+          </p>
+          <p>
+            The question of this study is whether our agent matches AuditOwl&apos;s
+            findings. To find out, we ran our agent on a fraction of the NeurIPS
+            papers and then had a comparison agent read our findings and
+            AuditOwl&apos;s side by side. It grouped the two sets into match
+            clusters (findings that describe the same flaw) and one-sided
+            findings that only one system reported. That grouping is a proposal.
+            You are the one who decides whether it is right.
+          </p>
+          <p>
+            So we ask you to confirm or deny cluster matches and judge one-sided
+            findings against the paper, the code and the validation output.
+            “Unsure” is a valid result: it releases the item, keeps your note
+            visible and puts it back in the pool for someone with fresh eyes.
+          </p>
+          <p>
+            Thank you for spending your attention on this. Reading this much
+            model output is genuinely soul-crushing, trust me, I know. If
+            something is broken or the protocol is unclear, write to me:{" "}
+            <a
+              href={`mailto:${contactEmail}`}
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              {contactEmail}
+            </a>{" "}
+            or send me a Signal message.
+          </p>
+          <p>
+            Simon
+          </p>
+        </div>
+      </section>
+
+      <section
+        data-tour={TOUR_ANCHORS.guideJob}
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-medium">
+            Your job, in two shapes
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Almost every item is one of these. Related pairs are the exception,
+            and they are still one decision.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GitCompare data-icon="inline-start" />
+                Match clusters
+              </CardTitle>
+              <CardDescription>
+                Two findings, or two groups of findings, that may describe the
+                same defect.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              Read both sides and choose same defect or not a match. When it is
+              a match, confirm or adjust the proposed strength and coverage. The
+              verification note is evidence, not a verdict.
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSearch data-icon="inline-start" />
+                One-sided findings
+              </CardTitle>
+              <CardDescription>
+                Only one system reported this one.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground">
+              For an agent-only finding, decide whether it is valid and whether
+              it adds something real. For an AuditOwl-only finding, decide why
+              the agent missed it and whether the original finding holds up.
+              Judge it from the paper, the code and the check output.
+            </CardContent>
+          </Card>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Tags data-icon="inline-start" />
+              Related pairs
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            A related pair is two findings that looked similar but were kept
+            apart instead of being merged. Your question is whether that
+            separation was right. Like every other item, one pair is one
+            decision.
+          </CardContent>
+        </Card>
+      </section>
+
+      <section
+        data-tour={TOUR_ANCHORS.guideTours}
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-medium">
+            Tours (two minutes each, no quiz)
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Four short tours, one per page. They point at things; they do not
+            change anything.
+          </p>
+        </div>
+        {example ? null : (
+          <Alert>
+            <Compass />
+            <AlertTitle>No example paper is mounted</AlertTitle>
+            <AlertDescription>
+              The paper and item tours need one real paper with reviewable
+              items. The other tours work now, and the example tours appear as
+              soon as a batch is available.
+            </AlertDescription>
+          </Alert>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {TOUR_IDS.map((id) => {
+            const Icon = TOUR_ICONS[id]
+            const title = exampleTitle(id, example)
+            return (
+              <Card key={id}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Icon data-icon="inline-start" />
+                    {TOURS[id].label}
+                  </CardTitle>
+                  <CardDescription>{TOURS[id].description}</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                  {title ? (
+                    <p className="line-clamp-2 text-xs text-muted-foreground">
+                      Opens {title}
+                    </p>
+                  ) : null}
+                  <TourStartButton tour={id} href={exampleHref(id, example)} />
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      </section>
+
+      <section
+        data-tour={TOUR_ANCHORS.guideChecklist}
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-medium">Evidence first</h2>
+          <p className="text-sm text-muted-foreground">
+            The order we recommend. It works for clusters, one-sided findings
+            and related pairs.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="pt-4">
+            <ol className="flex flex-col gap-3 text-sm">
+              {CHECKLIST.map((step, index) => (
+                <li key={step} className="flex gap-3">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                    {index + 1}
+                  </span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section
+        data-tour={TOUR_ANCHORS.guideProtocol}
+        className="flex flex-col gap-4"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="font-heading text-lg font-medium">
+            Protocol, precisely
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            The vocabulary used by the decision form, the history and the
+            exports. You do not need to memorise it; it is here when a label is
+            unclear.
+          </p>
+        </div>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scale data-icon="inline-start" />
               Definitions
             </CardTitle>
-            <CardDescription>
-              The vocabulary used by the decision form and exports.
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <dl className="flex flex-col gap-4">
@@ -146,151 +425,55 @@ export default function GuidePage() {
             </dl>
           </CardContent>
         </Card>
+      </section>
 
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardCheck data-icon="inline-start" />
-                What to do for each item
-              </CardTitle>
-              <CardDescription>
-                A short, evidence-first checklist.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ol className="flex flex-col gap-3 text-sm">
-                {[
-                  "Reserve the item. Expand a finding to read its claim; clusters list every grouped finding.",
-                  "Read the automated verification note. It usually states what was checked and what the result was.",
-                  "Open the code evidence and confirm the cited lines and the quote badge.",
-                  "Open Check evidence and inspect the outputs first. Open the script only when you need to know how the output was produced.",
-                  "Use the paper context excerpt when the finding depends on what the paper reports.",
-                  "Choose a verdict. Adjust proposed labels only when the evidence supports a different strength, coverage or verification.",
-                  "Write a short note with the line, output or page that decided it. Save and close, or mark unsure if the evidence is genuinely incomplete.",
-                ].map((step, index) => (
-                  <li key={step} className="flex gap-2">
-                    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                      {index + 1}
-                    </span>
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Keyboard data-icon="inline-start" />
-                Keyboard shortcuts
-              </CardTitle>
-              <CardDescription>
-                Ignored while typing in a field.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                {SHORTCUTS.map((shortcut) => (
-                  <div key={shortcut.keys} className="contents">
-                    <dt>
-                      <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">
-                        {shortcut.keys}
-                      </kbd>
-                    </dt>
-                    <dd className="text-muted-foreground">{shortcut.action}</dd>
-                  </div>
-                ))}
-              </dl>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Code2 data-icon="inline-start" />
-              Verify the code
+              <ShieldCheck data-icon="inline-start" />
+              Status at a glance
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            The evidence trail resolves the cited path inside the paper’s
-            repository snapshot, shows the surrounding code and highlights the
-            cited range. For absence claims, use “Search repo” and the closest
-            matches. Open Check evidence to see outputs before the script
-            source.
+          <CardContent className="flex flex-col gap-3 text-sm">
+            <span className="flex items-center gap-2">
+              <StatusBadge status="open" /> no active claim, no final decision
+            </span>
+            <span className="flex items-center gap-2">
+              <StatusBadge status="claimed" /> a live two-hour claim
+            </span>
+            <span className="flex items-center gap-2">
+              <StatusBadge status="unsure" /> the latest attempt is unsure
+            </span>
+            <span className="flex items-center gap-2">
+              <StatusBadge status="closed" /> a final decision exists
+            </span>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText data-icon="inline-start" />
-              Verify the paper
+              <Keyboard data-icon="inline-start" />
+              Keyboard shortcuts
             </CardTitle>
+            <CardDescription>Ignored while typing in a field.</CardDescription>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            The paper context shows the recorded reference and the exact
-            extracted-text excerpt around the finding’s quote. Open the PDF from
-            the page header when you need the full layout. A page reference is a
-            pointer, not proof; read the surrounding paragraph.
+          <CardContent>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+              {SHORTCUTS.map((shortcut) => (
+                <div key={shortcut.keys} className="contents">
+                  <dt>
+                    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">
+                      {shortcut.keys}
+                    </kbd>
+                  </dt>
+                  <dd className="text-muted-foreground">{shortcut.action}</dd>
+                </div>
+              ))}
+            </dl>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GitCompare data-icon="inline-start" />
-              Compare the sides
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            Clusters and related pairs list every finding; expand them to
-            compare the claim, the cited file and the evidence. Agreement in
-            wording is not enough when the line ranges or the underlying defect
-            differ.
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck data-icon="inline-start" />
-            Status at a glance
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-4 text-sm">
-          <span className="flex items-center gap-2">
-            <StatusBadge status="open" /> no active claim, no final decision
-          </span>
-          <span className="flex items-center gap-2">
-            <StatusBadge status="claimed" /> a live two-hour claim
-          </span>
-          <span className="flex items-center gap-2">
-            <StatusBadge status="unsure" /> the latest attempt is unsure
-          </span>
-          <span className="flex items-center gap-2">
-            <StatusBadge status="closed" /> a final decision exists
-          </span>
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <Lock data-icon="inline-start" /> Claims are first come, first served.
-        </span>
-        <span className="flex items-center gap-1.5">
-          <StickyNote data-icon="inline-start" /> Unsure notes stay visible.
-        </span>
-        <span className="flex items-center gap-1.5">
-          <Tags data-icon="inline-start" /> Labels are validated on the server.
-        </span>
-        <span className="flex items-center gap-1.5">
-          <CheckCircle2 data-icon="inline-start" /> Closed means a human
-          decision exists.
-        </span>
       </div>
     </div>
   )

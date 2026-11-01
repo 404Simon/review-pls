@@ -1,4 +1,5 @@
 import { ITEM_KINDS } from "@/lib/review/ids"
+import { TOUR_QUERY_PARAM } from "@/lib/review/tour-routes"
 import type {
   ItemKind,
   ItemStatus,
@@ -190,6 +191,10 @@ export function buildQueryString(
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === "") {
+      continue
+    }
+    // `?tour=` is a one-shot start signal, never part of a filter or tab URL.
+    if (key === TOUR_QUERY_PARAM) {
       continue
     }
     if (value === "all" && FILTER_KEYS.has(key)) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  buildQueryString,
   ITEM_TABS,
   kindForTab,
   matchesReviewFilters,
@@ -237,5 +238,14 @@ describe("queryFromFilters", () => {
       mine: "",
       q: "",
     })
+  })
+})
+
+describe("buildQueryString", () => {
+  it("never re-serializes the transient tour parameter", () => {
+    expect(
+      buildQueryString({ tab: "matches", tour: "paper", severity: "high" })
+    ).toBe("?tab=matches&severity=high")
+    expect(buildQueryString({ tour: "dashboard" })).toBe("")
   })
 })

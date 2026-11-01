@@ -15,6 +15,7 @@ require_env DATABASE_URL
 require_env BETTER_AUTH_URL
 require_env BETTER_AUTH_SECRET
 require_env REGISTRATION_CODE
+require_env CONTACT_EMAIL
 require_env REVIEW_DATA_ROOT
 
 if [ -n "$missing" ]; then

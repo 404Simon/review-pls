@@ -40,6 +40,9 @@ export const OPEN_OVERLAY_SELECTOR = [
   "[data-slot='dialog-content']",
   "[data-slot='alert-dialog-content']",
   "[data-slot='command']",
+  // Guided tours dim the page and own the keyboard until they close.
+  "[data-slot='tour-blocker']",
+  "[data-slot='tour-popover']",
   "dialog[open]",
   "[role='dialog'][aria-modal='true']",
   "[role='alertdialog']",

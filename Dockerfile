@@ -29,6 +29,7 @@ COPY . .
 ENV BETTER_AUTH_SECRET=build-time-placeholder-not-used-at-runtime \
     BETTER_AUTH_URL=http://localhost:3000 \
     REGISTRATION_CODE=build-time-placeholder \
+    CONTACT_EMAIL=build-time@example.com \
     DATABASE_URL=/tmp/build.db
 
 RUN pnpm build

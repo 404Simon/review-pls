@@ -8,10 +8,17 @@ const port = 3100
 const baseURL = `http://localhost:${port}`
 const databaseUrl = path.join(process.cwd(), ".playwright", "test.db")
 const registrationCode = process.env.REGISTRATION_CODE
+const contactEmail = process.env.CONTACT_EMAIL
 
 if (!registrationCode) {
   throw new Error(
     "REGISTRATION_CODE must be set in .env to run the auth tests."
+  )
+}
+
+if (!contactEmail) {
+  throw new Error(
+    "CONTACT_EMAIL must be set in .env to run the review UI tests."
   )
 }
 
@@ -46,6 +53,7 @@ export default defineConfig({
       DATABASE_URL: databaseUrl,
       NEXT_DIST_DIR: ".next-e2e",
       REGISTRATION_CODE: registrationCode,
+      CONTACT_EMAIL: contactEmail,
       REVIEW_DATA_ROOT: path.join(
         process.cwd(),
         "e2e",

@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/review/empty-state"
 import { FilterBar } from "@/components/review/filter-bar"
 import { PaperTable, type PaperTableRow } from "@/components/review/paper-table"
 import { StatsCards } from "@/components/review/stats-cards"
+import { TourStartButton } from "@/components/review/tour-start-button"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
@@ -35,6 +36,7 @@ import {
 import { getUserRole } from "@/lib/review/roles"
 import { describeBatchListError } from "@/lib/review/public-errors"
 import { computeBatchStats } from "@/lib/review/stats"
+import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 import { loadBatchReviewView } from "@/lib/review/ui-data"
 import type { ReviewItem, Severity } from "@/lib/review/types"
 import { getSession } from "@/lib/session"
@@ -97,14 +99,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <div className="flex flex-col gap-1">
-        <h1 className="font-heading text-2xl font-medium text-balance">
-          Welcome back, {firstName}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Review overlap and new findings, then close each item with evidence in
-          view.
-        </p>
+      <div
+        data-tour={TOUR_ANCHORS.dashboardWelcome}
+        className="flex flex-wrap items-start justify-between gap-3"
+      >
+        <div className="flex flex-col gap-1">
+          <h1 className="font-heading text-2xl font-medium text-balance">
+            Welcome back, {firstName}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Review overlap and new findings, then close each item with evidence
+            in view.
+          </p>
+        </div>
+        <TourStartButton tour="dashboard" />
       </div>
 
       {activeBatch === null ? (
@@ -239,66 +247,70 @@ async function DashboardBatch({
 
   return (
     <div className="flex flex-col gap-4">
-      <StatsCards stats={stats} />
+      <div data-tour={TOUR_ANCHORS.dashboardStats}>
+        <StatsCards stats={stats} />
+      </div>
 
-      <FilterBar
-        basePath="/dashboard"
-        params={params}
-        fields={[
-          {
-            key: "severity",
-            label: "Severity",
-            value: filters.severity,
-            options: [
-              { value: "all", label: "All severities" },
-              ...severityOrder.map((severity) => ({
-                value: severity,
-                label: severity[0].toUpperCase() + severity.slice(1),
-              })),
-            ],
-          },
-          {
-            key: "kind",
-            label: "Type",
-            value: filters.kind,
-            options: [
-              { value: "all", label: "All types" },
-              { value: "cluster", label: "Match cluster" },
-              { value: "agent_only", label: "Agent-only" },
-              { value: "auditowl_only", label: "AuditOwl-only" },
-              { value: "related", label: "Related pair" },
-            ],
-          },
-          {
-            key: "status",
-            label: "Status",
-            value: filters.status,
-            options: [
-              { value: "all", label: "All statuses" },
-              { value: "open", label: "Open" },
-              { value: "claimed", label: "Claimed" },
-              { value: "unsure", label: "Unsure" },
-              { value: "closed", label: "Closed" },
-            ],
-          },
-          {
-            key: "mine",
-            label: "Assignment",
-            value: filters.mine ? "mine" : "all",
-            options: [
-              { value: "all", label: "Anyone" },
-              { value: "mine", label: "Only mine" },
-            ],
-          },
-        ]}
-        search={{
-          value: filters.search,
-          label: "Search items",
-          placeholder: "Title, ref or paper id",
-        }}
-      />
+      <div data-tour={TOUR_ANCHORS.dashboardFilters}>
+        <FilterBar
+          basePath="/dashboard"
+          params={params}
+          fields={[
+            {
+              key: "severity",
+              label: "Severity",
+              value: filters.severity,
+              options: [
+                { value: "all", label: "All severities" },
+                ...severityOrder.map((severity) => ({
+                  value: severity,
+                  label: severity[0].toUpperCase() + severity.slice(1),
+                })),
+              ],
+            },
+            {
+              key: "kind",
+              label: "Type",
+              value: filters.kind,
+              options: [
+                { value: "all", label: "All types" },
+                { value: "cluster", label: "Match cluster" },
+                { value: "agent_only", label: "Agent-only" },
+                { value: "auditowl_only", label: "AuditOwl-only" },
+                { value: "related", label: "Related pair" },
+              ],
+            },
+            {
+              key: "status",
+              label: "Status",
+              value: filters.status,
+              options: [
+                { value: "all", label: "All statuses" },
+                { value: "open", label: "Open" },
+                { value: "claimed", label: "Claimed" },
+                { value: "unsure", label: "Unsure" },
+                { value: "closed", label: "Closed" },
+              ],
+            },
+            {
+              key: "mine",
+              label: "Assignment",
+              value: filters.mine ? "mine" : "all",
+              options: [
+                { value: "all", label: "Anyone" },
+                { value: "mine", label: "Only mine" },
+              ],
+            },
+          ]}
+          search={{
+            value: filters.search,
+            label: "Search items",
+            placeholder: "Title, ref or paper id",
+          }}
+        />
+      </div>
 
-      <Card>
+      <Card data-tour={TOUR_ANCHORS.dashboardPapers}>
         <CardHeader>
           <CardTitle>Papers</CardTitle>
           <CardDescription>
@@ -310,6 +322,7 @@ async function DashboardBatch({
             <CardAction>
               <Link
                 href={withQuery(itemPath(batchId, resumeItem.id), preserved)}
+                data-tour={TOUR_ANCHORS.dashboardResume}
                 className={buttonVariants({
                   size: "sm",
                   variant: frozen ? "outline" : "default",

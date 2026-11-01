@@ -20,6 +20,9 @@ services:
       # Invite code required to sign up. Keep it out of version control.
       REGISTRATION_CODE: "replace-with-a-registration-code"
 
+      # Required contact address shown in the reviewer guide.
+      CONTACT_EMAIL: "simon@example.org"
+
       # SQLite file inside the container; keep it on the bind mount below.
       DATABASE_URL: "/data/review.db"
 

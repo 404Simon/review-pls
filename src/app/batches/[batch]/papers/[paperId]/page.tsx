@@ -6,6 +6,7 @@ import { DataErrorState } from "@/components/review/data-error"
 import { ItemList } from "@/components/review/item-list"
 import { PaperActions } from "@/components/review/paper-actions"
 import { StatsCards } from "@/components/review/stats-cards"
+import { TourStartButton } from "@/components/review/tour-start-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -23,6 +24,7 @@ import {
 } from "@/lib/review/load"
 import { getUserRole } from "@/lib/review/roles"
 import { computePaperStats } from "@/lib/review/stats"
+import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 import { loadBatchReviewView } from "@/lib/review/ui-data"
 import { db } from "@/db"
 import { getSession } from "@/lib/session"
@@ -134,9 +136,13 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
         </Link>
         <span aria-hidden>/</span>
         <span className="font-mono text-xs">{paperId}</span>
+        <TourStartButton tour="paper" className="ml-auto" />
       </div>
 
-      <header className="flex flex-col gap-4">
+      <header
+        data-tour={TOUR_ANCHORS.paperHeader}
+        className="flex flex-col gap-4"
+      >
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>AuditOwl {paper.manifest.auditowlStatus}</span>
@@ -162,7 +168,10 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
         {caveats.length > 0 ||
         paper.manifest.scopeNote ||
         !paper.manifest.comparisonEligible ? (
-          <details className="rounded-xl border bg-card">
+          <details
+            data-tour={TOUR_ANCHORS.paperCaveats}
+            className="rounded-xl border bg-card"
+          >
             <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-sm font-medium">
               <AlertTriangle
                 data-icon="inline-start"
@@ -199,11 +208,13 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
         ) : null}
       </header>
 
-      <StatsCards
-        stats={stats}
-        scopeLabel="All items on this paper."
-        completionLabel="Paper completion"
-      />
+      <div data-tour={TOUR_ANCHORS.paperStats}>
+        <StatsCards
+          stats={stats}
+          scopeLabel="All items on this paper."
+          completionLabel="Paper completion"
+        />
+      </div>
 
       {revisionMismatches.length > 0 ? (
         <Alert variant="destructive">
@@ -230,7 +241,7 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
         </Alert>
       ) : null}
 
-      <Card>
+      <Card data-tour={TOUR_ANCHORS.paperItems}>
         <CardHeader>
           <CardTitle>Review items</CardTitle>
         </CardHeader>

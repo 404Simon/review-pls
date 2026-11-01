@@ -32,7 +32,7 @@ The image is built from `Dockerfile` (Next.js standalone output) and is intended
    ssh server 'chmod -R a+rX /srv/review-pls/review-data'
    ```
 
-3. Set the environment variables in `docker-compose.yml`. `ADMIN_EMAILS` lists the accounts that become admin on start; see the bootstrap notes below.
+3. Set the environment variables in `docker-compose.yml`. `CONTACT_EMAIL` is the required contact address shown in the reviewer guide, and `ADMIN_EMAILS` lists the accounts that become admin on start; see the bootstrap notes below.
 
 4. Start it:
 

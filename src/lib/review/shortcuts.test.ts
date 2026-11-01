@@ -42,6 +42,8 @@ describe("overlay guard", () => {
     expect(hasOpenOverlay(() => ({}))).toBe(true)
     expect(OPEN_OVERLAY_SELECTOR).toContain("data-open")
     expect(OPEN_OVERLAY_SELECTOR).toContain("[role='alertdialog']")
+    expect(OPEN_OVERLAY_SELECTOR).toContain("[data-slot='tour-blocker']")
+    expect(OPEN_OVERLAY_SELECTOR).toContain("[data-slot='tour-popover']")
   })
 
   it("suppresses shortcuts behind dialogs, in fields and with modifiers", () => {

@@ -1,5 +1,6 @@
 import { db } from "@/db"
 import { migrateDatabase } from "@/db/migrate"
+import { getContactEmail } from "@/lib/contact-email"
 
 import { promoteAllowlistedAdmins } from "./roles"
 
@@ -17,6 +18,9 @@ import { promoteAllowlistedAdmins } from "./roles"
  * down, so it is logged and the next restart retries.
  */
 export function runStartupTasks(): void {
+  // Required configuration: crash at startup rather than rendering a guide
+  // with a missing or broken contact address.
+  getContactEmail()
   migrateDatabase()
   promoteAdminsFromEnv()
 }

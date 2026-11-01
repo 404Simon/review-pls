@@ -165,3 +165,17 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Keep the tour popover inside narrow viewports; the registry uses `w-80`. */
+[data-slot="tour-popover"] {
+  width: min(20rem, calc(100vw - 2rem));
+}
+
+/*
+ * The tour anchors its popover to a virtual element, which leaves Base UI's
+ * decorative arrow detached at a corner. The spotlight already shows what the
+ * step points at, so keep the popover clean.
+ */
+[data-slot="tour-popover-arrow"] {
+  display: none;
+}

@@ -33,6 +33,7 @@ import type { LinkCandidate } from "@/components/review/link-picker"
 import { PaperActions } from "@/components/review/paper-actions"
 import { SeverityBadge } from "@/components/review/severity-badge"
 import { ShortcutHelp } from "@/components/review/shortcut-help"
+import { TourStartButton } from "@/components/review/tour-start-button"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
@@ -56,6 +57,7 @@ import {
   isShortcutSuppressed,
   isTypingTarget,
 } from "@/lib/review/shortcuts"
+import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 import type { CodeRepoManifest, ReviewItem } from "@/lib/review/types"
 
 function reviewQuestion(kind: ReviewItem["kind"]): string {
@@ -567,10 +569,14 @@ export function ItemReview({
           >
             <Keyboard />
           </Button>
+          <TourStartButton tour="item" />
         </div>
       </div>
 
-      <header className="flex flex-col gap-3">
+      <header
+        data-tour={TOUR_ANCHORS.itemHeader}
+        className="flex flex-col gap-3"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{formatItemKind(item.kind)}</Badge>
           <SeverityBadge severity={item.severity} />
@@ -595,84 +601,88 @@ export function ItemReview({
         />
       </header>
 
-      <Popover
-        open={popoverOpen && popoverAvailable}
-        onOpenChange={handlePopoverOpenChange}
-      >
-        <ClaimBar
-          item={item}
-          status={status}
-          claim={claim}
-          finalDecision={finalDecision}
-          latestUnsure={latestUnsure}
-          unsureHistory={state.unsureHistory}
-          serverNow={serverNow}
-          currentUserId={currentUserId}
-          reviewerNames={reviewerNames}
-          pending={pending}
-          frozen={frozen}
-          onClaim={() => void claimItem()}
-          onRelease={() => void releaseItem()}
-          actionTrigger={
-            canEdit ? (
-              <PopoverTrigger render={<Button size="sm" disabled={pending} />}>
-                <PencilLine data-icon="inline-start" />
-                Your decision
-              </PopoverTrigger>
-            ) : canShowFinalDecision ? (
-              <PopoverTrigger render={<Button size="sm" variant="outline" />}>
-                <Info data-icon="inline-start" />
-                Details
-              </PopoverTrigger>
-            ) : null
-          }
-        />
-        <PopoverContent
-          data-decision-popover
-          aria-label={canEdit ? "Your decision" : "Final decision"}
-          align="end"
-          side="bottom"
-          sideOffset={8}
-          collisionAvoidance={{ side: "shift", align: "shift" }}
-          keepMounted
-          className={`max-h-(--available-height) overflow-y-auto p-0 ${
-            canEdit
-              ? "w-[min(44rem,calc(100vw-2rem))]"
-              : "w-[min(32rem,calc(100vw-2rem))]"
-          }`}
+      <div data-tour={TOUR_ANCHORS.itemClaim}>
+        <Popover
+          open={popoverOpen && popoverAvailable}
+          onOpenChange={handlePopoverOpenChange}
         >
-          <PopoverClose
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-2 right-2 z-10"
-              />
+          <ClaimBar
+            item={item}
+            status={status}
+            claim={claim}
+            finalDecision={finalDecision}
+            latestUnsure={latestUnsure}
+            unsureHistory={state.unsureHistory}
+            serverNow={serverNow}
+            currentUserId={currentUserId}
+            reviewerNames={reviewerNames}
+            pending={pending}
+            frozen={frozen}
+            onClaim={() => void claimItem()}
+            onRelease={() => void releaseItem()}
+            actionTrigger={
+              canEdit ? (
+                <PopoverTrigger
+                  render={<Button size="sm" disabled={pending} />}
+                >
+                  <PencilLine data-icon="inline-start" />
+                  Your decision
+                </PopoverTrigger>
+              ) : canShowFinalDecision ? (
+                <PopoverTrigger render={<Button size="sm" variant="outline" />}>
+                  <Info data-icon="inline-start" />
+                  Details
+                </PopoverTrigger>
+              ) : null
             }
+          />
+          <PopoverContent
+            data-decision-popover
+            aria-label={canEdit ? "Your decision" : "Final decision"}
+            align="end"
+            side="bottom"
+            sideOffset={8}
+            collisionAvoidance={{ side: "shift", align: "shift" }}
+            keepMounted
+            className={`max-h-(--available-height) overflow-y-auto p-0 ${
+              canEdit
+                ? "w-[min(44rem,calc(100vw-2rem))]"
+                : "w-[min(32rem,calc(100vw-2rem))]"
+            }`}
           >
-            <X />
-            <span className="sr-only">Close</span>
-          </PopoverClose>
-          {canEdit ? (
-            <DecisionForm
-              // A server refresh that changes editability or the draft remounts
-              // the form, which clears a completed release/discard lock.
-              key={`${item.id}:${canEdit ? "edit" : "read"}:${claim?.id ?? "none"}`}
-              embedded
-              item={item}
-              batchId={batchId}
-              draft={draft}
-              canEdit={canEdit}
-              nextHref={saveNextHref ?? nextItemHref}
-              returnHref={returnHref}
-              linkCandidates={linkCandidates}
-              actionRef={decisionActions}
-            />
-          ) : canShowFinalDecision && finalDecision ? (
-            <FinalDecisionDetails item={item} decision={finalDecision} />
-          ) : null}
-        </PopoverContent>
-      </Popover>
+            <PopoverClose
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute top-2 right-2 z-10"
+                />
+              }
+            >
+              <X />
+              <span className="sr-only">Close</span>
+            </PopoverClose>
+            {canEdit ? (
+              <DecisionForm
+                // A server refresh that changes editability or the draft remounts
+                // the form, which clears a completed release/discard lock.
+                key={`${item.id}:${canEdit ? "edit" : "read"}:${claim?.id ?? "none"}`}
+                embedded
+                item={item}
+                batchId={batchId}
+                draft={draft}
+                canEdit={canEdit}
+                nextHref={saveNextHref ?? nextItemHref}
+                returnHref={returnHref}
+                linkCandidates={linkCandidates}
+                actionRef={decisionActions}
+              />
+            ) : canShowFinalDecision && finalDecision ? (
+              <FinalDecisionDetails item={item} decision={finalDecision} />
+            ) : null}
+          </PopoverContent>
+        </Popover>
+      </div>
 
       {role === "admin" ? (
         <AdminItemActions
@@ -695,17 +705,23 @@ export function ItemReview({
       ) : null}
 
       <div className="flex flex-col gap-6">
-        <FindingsReview key={item.id} item={item} bundle={evidence} />
+        <div data-tour={TOUR_ANCHORS.itemFindings}>
+          <FindingsReview key={item.id} item={item} bundle={evidence} />
+        </div>
 
-        <ComparatorProposal item={item} bundle={evidence} />
+        <div data-tour={TOUR_ANCHORS.itemComparator}>
+          <ComparatorProposal item={item} bundle={evidence} />
+        </div>
 
-        <Disclosure
-          title="Decision history"
-          description="Final, unsure and reopen events, newest first."
-          icon={History}
-        >
-          <DecisionHistory kind={item.kind} entries={history} />
-        </Disclosure>
+        <div data-tour={TOUR_ANCHORS.itemHistory}>
+          <Disclosure
+            title="Decision history"
+            description="Final, unsure and reopen events, newest first."
+            icon={History}
+          >
+            <DecisionHistory kind={item.kind} entries={history} />
+          </Disclosure>
+        </div>
       </div>
 
       <ShortcutHelp open={helpOpen} onOpenChange={setHelpOpen} />

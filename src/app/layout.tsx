@@ -1,6 +1,9 @@
 import { Geist, Geist_Mono } from "next/font/google"
+import { Suspense } from "react"
 
 import "./globals.css"
+import { TourAutoStart } from "@/components/review/tour-auto-start"
+import { ReviewTourProvider } from "@/components/review/tour-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -31,7 +34,12 @@ export default function RootLayout({
     >
       <body>
         <ThemeProvider>
-          <TooltipProvider>{children}</TooltipProvider>
+          <ReviewTourProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Suspense fallback={null}>
+              <TourAutoStart />
+            </Suspense>
+          </ReviewTourProvider>
           <Toaster richColors closeButton />
         </ThemeProvider>
       </body>

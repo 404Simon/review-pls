@@ -170,6 +170,7 @@ absolute paths, hashes and loader details in an admin-only block.
 - `DATABASE_URL` — SQLite path, e.g. `./local.db`.
 - `REVIEW_DATA_ROOT` — read-only review-data mount, one directory per batch (e.g. `./review-data`). Never commit it.
 - `REGISTRATION_CODE` — invite code. **Never expose it to the client**; never name it `NEXT_PUBLIC_*`, log it, or return it in an API response.
+- `CONTACT_EMAIL` — **required** contact address shown in `/guide`. Validated with zod at startup (`runStartupTasks`) and when the guide renders; a missing or invalid value fails the server start.
 - `ADMIN_EMAILS` — comma-separated list of the accounts that should be admin. On every server start `src/instrumentation.ts` promotes each **already registered** account whose email matches (`promoteAllowlistedAdmins`). Emails without an account are logged, never created, and picked up on the next start once that person registers. Promotion only: it never demotes, so roles granted through `/admin` stay and an empty or typo'd allowlist cannot lock a deployment out of its console. Because the invite code is shared and email verification is not configured, this trusts whoever registered the address first, so keep `REGISTRATION_CODE` private and check the role table on `/admin` after onboarding. `pnpm review:admin:sync --list` previews the candidates and `--user-id <id>` promotes one account immediately without a restart.
 
 Security rules:
@@ -191,6 +192,7 @@ Security rules:
 - Never point E2E tests at `local.db`.
 - Tests cover: wrong code, missing code, correct-code registration, profile-field persistence, valid login, wrong password, and `"none"` defaults.
 - Registration tests require `REGISTRATION_CODE` in `.env`; the suite fails fast if it is missing.
+- Guide tests require `CONTACT_EMAIL` in `.env`; Playwright also passes it to the isolated dev server.
 - Prefer role/label locators (`getByRole`, `getByLabel`) over CSS selectors.
 - Filter `getByRole("alert")` by text; Next's route announcer also uses `role="alert"`.
 

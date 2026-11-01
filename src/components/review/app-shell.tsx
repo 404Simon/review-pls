@@ -13,6 +13,7 @@ import { db } from "@/db"
 import { isUserFrozen } from "@/lib/review/account-status"
 import { batchNavItems } from "@/lib/review/batch-nav"
 import { listBatches, ReviewDataError } from "@/lib/review/load"
+import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 
 export interface AppShellUser {
   name: string
@@ -62,7 +63,7 @@ export async function AppShell({
   })
 
   return (
-    <div className="flex min-h-svh flex-col bg-muted/30">
+    <div data-app-root className="flex min-h-svh flex-col bg-muted/30">
       <a
         href="#main-content"
         className="sr-only rounded-md bg-background px-3 py-2 text-sm font-medium ring-1 ring-border focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50"
@@ -70,7 +71,10 @@ export async function AppShell({
         Skip to content
       </a>
       <KeyboardLayer />
-      <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+      <header
+        data-tour={TOUR_ANCHORS.shellNav}
+        className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70"
+      >
         <div className="mx-auto flex w-full max-w-[100rem] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:px-6">
           <Link
             href="/dashboard"
