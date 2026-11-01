@@ -8,6 +8,7 @@ import { BatchSelect } from "@/components/review/batch-select"
 import { ThemeToggle } from "@/components/review/theme-toggle"
 import { UserMenu } from "@/components/review/user-menu"
 import { WorkspaceNav } from "@/components/review/workspace-nav"
+import { Badge } from "@/components/ui/badge"
 import { db } from "@/db"
 import { isUserFrozen } from "@/lib/review/account-status"
 import { batchNavItems } from "@/lib/review/batch-nav"
@@ -47,6 +48,7 @@ export async function AppShell({
 }: AppShellProps) {
   const summary = await safeBatches()
   const frozen = isUserFrozen(db, userId)
+  const isProduction = process.env.NODE_ENV === "production"
   // Only pass the label to the client. Loader errors contain absolute mount
   // paths and must stay in the server-rendered admin details block.
   const batches = summary.map((batch) => ({
@@ -89,6 +91,14 @@ export async function AppShell({
                 Review workspace
               </span>
             </span>
+            {isProduction ? null : (
+              <Badge
+                variant="outline"
+                className="border-warning-border bg-warning text-[0.6rem] font-semibold tracking-wide text-warning-foreground uppercase"
+              >
+                Dev build
+              </Badge>
+            )}
           </Link>
 
           <span className="hidden h-7 w-px bg-border md:block" aria-hidden />
