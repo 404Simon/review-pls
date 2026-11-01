@@ -353,7 +353,9 @@ test("renders claims, code, check outputs and paper context", async ({
   await expect(page.getByText("2 Grouped Findings")).toBeVisible()
   await expect(page.getByText("quote matches")).toHaveCount(0)
   await expect(page.getByText("Automated comparator").first()).toBeVisible()
-  await expect(page.getByText("Automated verification").first()).toBeVisible()
+  await expect(
+    page.getByText("Both sides point at the same selection loop.").first()
+  ).toBeVisible()
   await page.getByRole("button", { name: "Open all" }).click()
 
   await expect(

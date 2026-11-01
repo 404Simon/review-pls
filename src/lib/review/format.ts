@@ -61,6 +61,11 @@ export function formatTimestamp(milliseconds: number): string {
   return TIMESTAMP_FORMAT.format(new Date(milliseconds))
 }
 
+/** Count with a pluralised label, e.g. 1 path, 3 paths. */
+export function formatCount(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`
+}
+
 export function formatPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }

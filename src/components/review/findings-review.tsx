@@ -1,31 +1,14 @@
 "use client"
 
-import { ChevronsDownUp, ChevronsUpDown, ShieldCheck } from "lucide-react"
+import { ChevronsDownUp, ChevronsUpDown } from "lucide-react"
 import { useState } from "react"
 
 import { Accordion } from "@/components/ui/accordion"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { CheckView } from "@/components/review/check-view"
-import { EvidenceSection } from "@/components/review/evidence-section"
 import { FindingReview } from "@/components/review/finding-review"
-import type {
-  EvidenceBundle,
-  FindingEvidence,
-  VerificationEvidence,
-} from "@/lib/review/evidence"
+import type { EvidenceBundle, FindingEvidence } from "@/lib/review/evidence"
+import { formatCount } from "@/lib/review/format"
 import type { ReviewFinding, ReviewItem } from "@/lib/review/types"
-
-function countLabel(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? "" : "s"}`
-}
 
 function findingKey(finding: Pick<ReviewFinding, "side" | "id">): string {
   return `${finding.side}:${finding.id}`
@@ -57,10 +40,10 @@ function groupTitle(
     return "No findings"
   }
   if (item.kind === "cluster") {
-    return countLabel(findings.length, "Grouped Finding")
+    return formatCount(findings.length, "Grouped Finding")
   }
   if (item.kind === "related") {
-    return countLabel(findings.length, "Related Finding")
+    return formatCount(findings.length, "Related Finding")
   }
   return "The finding"
 }
@@ -87,78 +70,6 @@ function groupSummary(
     parts.push(`${agent} Review agent${agent === 1 ? "" : "s"}`)
   }
   return parts.join(" · ")
-}
-
-function VerificationSummary({ bundle }: { bundle: EvidenceBundle }) {
-  const verification: VerificationEvidence | null = bundle.verification
-  if (!verification) {
-    return null
-  }
-  if (
-    !verification.status &&
-    !verification.note &&
-    verification.checked.length === 0
-  ) {
-    return null
-  }
-
-  const findingOutputs = new Set(
-    bundle.sides.flatMap((side) =>
-      side.findings.flatMap((finding) =>
-        finding.checks
-          .filter((check) => check.role === "output")
-          .map((check) => check.label)
-      )
-    )
-  )
-  const extraOutputs = verification.artifacts.filter(
-    (artifact) => !findingOutputs.has(artifact.label)
-  )
-
-  return (
-    <Card size="sm" className="bg-muted/30">
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2">
-          <ShieldCheck data-icon="inline-start" />
-          Automated verification
-          {verification.status ? (
-            <Badge>{verification.status.replaceAll("_", " ")}</Badge>
-          ) : null}
-        </CardTitle>
-        {verification.note ? (
-          <CardDescription className="text-sm text-foreground">
-            {verification.note}
-          </CardDescription>
-        ) : null}
-      </CardHeader>
-      {verification.checked.length > 0 || extraOutputs.length > 0 ? (
-        <CardContent className="flex flex-col gap-2">
-          {extraOutputs.length > 0 ? (
-            <EvidenceSection
-              title="Verified outputs"
-              summary={countLabel(extraOutputs.length, "artifact")}
-            >
-              <CheckView checks={extraOutputs} />
-            </EvidenceSection>
-          ) : null}
-          {verification.checked.length > 0 ? (
-            <EvidenceSection
-              title="Checked paths"
-              summary={countLabel(verification.checked.length, "path")}
-            >
-              <ul className="grid gap-1 sm:grid-cols-2">
-                {verification.checked.map((checked) => (
-                  <li key={checked} className="font-mono text-xs break-all">
-                    {checked}
-                  </li>
-                ))}
-              </ul>
-            </EvidenceSection>
-          ) : null}
-        </CardContent>
-      ) : null}
-    </Card>
-  )
 }
 
 /**
@@ -260,8 +171,6 @@ export function FindingsReview({
           })}
         </Accordion>
       )}
-
-      <VerificationSummary bundle={bundle} />
     </section>
   )
 }

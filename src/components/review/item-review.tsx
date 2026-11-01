@@ -687,7 +687,7 @@ export function ItemReview({
       <div className="flex flex-col gap-6">
         <FindingsReview key={item.id} item={item} bundle={evidence} />
 
-        <ComparatorProposal item={item} />
+        <ComparatorProposal item={item} bundle={evidence} />
 
         <Disclosure
           title="Decision history"
