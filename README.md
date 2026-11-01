@@ -107,6 +107,8 @@ Two deterministic, schema-versioned JSON files are written to `exports/<batch>/`
 
 The admin download route is `GET /api/admin/export/<batch>?type=dataset|decisions`. It requires an admin session and sends the JSON as an attachment.
 
+Set `EXPORT_DIR` to have the running server write both exports for every mounted batch on start and then every hour: `<EXPORT_DIR>/<batch>/review-dataset.json` and `<EXPORT_DIR>/<batch>/decisions.json`. These names are stable, so each run overwrites the previous one instead of accumulating timestamped files. The directory must be writable by the server user (in the container image, mount a writable volume and set `EXPORT_DIR` to that path). A failed export is logged and retried on the next hourly run; it does not stop the server or abort other batches.
+
 ## Search
 
 Code search uses `ripgrep`. The Docker image installs it; a local checkout needs `rg` on `PATH`. If it is missing, `/api/search` returns a clear 503 and the rest of the app keeps working.

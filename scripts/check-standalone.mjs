@@ -1,4 +1,4 @@
-import { readdir, rm, stat } from "node:fs/promises"
+import { readFile, readdir, rm, stat } from "node:fs/promises"
 import path from "node:path"
 
 const args = process.argv.slice(2)
@@ -27,6 +27,77 @@ function isForbidden(name) {
     name === ".env" ||
     name.startsWith(".env.") ||
     name.startsWith("local.db")
+  )
+}
+
+async function collectTraceFiles(directory) {
+  let entries
+  try {
+    entries = await readdir(directory, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const traces = []
+  for (const entry of entries) {
+    const absolute = path.join(directory, entry.name)
+    if (entry.isDirectory()) {
+      traces.push(...(await collectTraceFiles(absolute)))
+    } else if (entry.isFile() && entry.name.endsWith(".nft.json")) {
+      traces.push(absolute)
+    }
+  }
+  return traces
+}
+
+/**
+ * Next applies `outputFileTracingExcludes` to route traces but not to the Node
+ * instrumentation trace. The instrumentation hook imports the review-data
+ * loaders, whose runtime `readdir`/`readFile` calls make the tracer fall back
+ * to globbing project files. Return the top-level entries that only that trace
+ * references, so `--clean` can drop them; anything referenced by a route trace
+ * still fails the check.
+ */
+async function instrumentationOnlyEntries(root) {
+  // Trace files stay next to the server bundle; the standalone directory is
+  // their copy destination, so resolve them from the dist directory.
+  const distDir = path.dirname(root)
+  const projectRoot = path.dirname(distDir)
+  const references = new Map()
+  for (const trace of await collectTraceFiles(path.join(distDir, "server"))) {
+    let data
+    try {
+      data = JSON.parse(await readFile(trace, "utf8"))
+    } catch {
+      continue
+    }
+    const instrumentation =
+      path.basename(trace) === "instrumentation.js.nft.json"
+    for (const file of data.files ?? []) {
+      const relative = path.relative(
+        projectRoot,
+        path.resolve(path.dirname(trace), file)
+      )
+      if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+        continue
+      }
+      const top = relative.split(path.sep)[0]
+      const state = references.get(top) ?? {
+        instrumentation: false,
+        route: false,
+      }
+      if (instrumentation) {
+        state.instrumentation = true
+      } else {
+        state.route = true
+      }
+      references.set(top, state)
+    }
+  }
+
+  return new Set(
+    [...references.entries()]
+      .filter(([, state]) => state.instrumentation && !state.route)
+      .map(([name]) => name)
   )
 }
 
@@ -64,6 +135,16 @@ if (clean) {
     if (entry.name === ".env" || entry.name.startsWith(".env.")) {
       await rm(path.join(root, entry.name), { force: true })
     }
+  }
+  entries = await readdir(root, { withFileTypes: true })
+
+  const instrumentationOnly = await instrumentationOnlyEntries(root)
+  for (const entry of entries) {
+    if (!isForbidden(entry.name) || !instrumentationOnly.has(entry.name)) {
+      continue
+    }
+    await rm(path.join(root, entry.name), { recursive: true, force: true })
+    console.log(`Removed instrumentation-trace false positive: ${entry.name}`)
   }
   entries = await readdir(root, { withFileTypes: true })
 }

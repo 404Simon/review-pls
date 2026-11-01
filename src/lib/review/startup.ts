@@ -2,11 +2,13 @@ import { db } from "@/db"
 import { migrateDatabase } from "@/db/migrate"
 import { getContactEmail } from "@/lib/contact-email"
 
+import { startScheduledExports } from "./export-schedule"
 import { promoteAllowlistedAdmins } from "./roles"
 
 /**
- * Node-only server startup work: apply pending migrations, then promote the
- * accounts listed in `ADMIN_EMAILS`.
+ * Node-only server startup work: apply pending migrations, promote the
+ * accounts listed in `ADMIN_EMAILS`, then start the hourly export when
+ * `EXPORT_DIR` is set.
  *
  * Imported lazily from `src/instrumentation.ts`, and only for the Node.js
  * runtime: this module (through `@/db`) loads better-sqlite3, which the Edge
@@ -23,6 +25,9 @@ export function runStartupTasks(): void {
   getContactEmail()
   migrateDatabase()
   promoteAdminsFromEnv()
+  // No-op unless EXPORT_DIR is set. Exports run in the Node server process
+  // only, so the standalone runtime image does not need pnpm or tsx.
+  startScheduledExports(db)
 }
 
 function promoteAdminsFromEnv(): void {

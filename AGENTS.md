@@ -154,6 +154,13 @@ absolute paths, hashes and loader details in an admin-only block.
   unless `--force` is passed; `--force` backs up and restores them if a later
   install fails. `GET /api/admin/export/[batch]?type=dataset|decisions` is the
   admin download route; both require admin authorization.
+- `src/lib/review/export-schedule.ts` runs only when `EXPORT_DIR` is set: on
+  server start and then hourly it writes
+  `<EXPORT_DIR>/<batch>/review-dataset.json` and `decisions.json` for every
+  valid mounted batch, overwriting the previous run. It reuses
+  `buildExportDocument`, stages both files before renaming them, skips
+  overlapping ticks, logs per-batch failures and never stops the server. It is
+  started from `runStartupTasks`, so the runtime image needs no `pnpm`/`tsx`.
 - `src/lib/review/data-health.ts` caches evidence inspection for five minutes.
   `adminReloadReviewDataAction` clears both the loader cache and the data-health
   cache. Do not make the admin page re-resolve every anchor on each request.
@@ -169,6 +176,7 @@ absolute paths, hashes and loader details in an admin-only block.
 - `BETTER_AUTH_URL` — public base URL, e.g. `http://localhost:3000`.
 - `DATABASE_URL` — SQLite path, e.g. `./local.db`.
 - `REVIEW_DATA_ROOT` — read-only review-data mount, one directory per batch (e.g. `./review-data`). Never commit it.
+- `EXPORT_DIR` — optional writable directory for the hourly scheduled exports (see above). Must be reachable and writable by the server user; in Docker, back it with a volume. Unset disables the scheduler.
 - `REGISTRATION_CODE` — invite code. **Never expose it to the client**; never name it `NEXT_PUBLIC_*`, log it, or return it in an API response.
 - `CONTACT_EMAIL` — **required** contact address shown in `/guide`. Validated with zod at startup (`runStartupTasks`) and when the guide renders; a missing or invalid value fails the server start.
 - `ADMIN_EMAILS` — comma-separated list of the accounts that should be admin. On every server start `src/instrumentation.ts` promotes each **already registered** account whose email matches (`promoteAllowlistedAdmins`). Emails without an account are logged, never created, and picked up on the next start once that person registers. Promotion only: it never demotes, so roles granted through `/admin` stay and an empty or typo'd allowlist cannot lock a deployment out of its console. Because the invite code is shared and email verification is not configured, this trusts whoever registered the address first, so keep `REGISTRATION_CODE` private and check the role table on `/admin` after onboarding. `pnpm review:admin:sync --list` previews the candidates and `--user-id <id>` promotes one account immediately without a restart.
@@ -211,6 +219,13 @@ Security rules:
 ## Known pitfalls
 
 - `src/app` is ignored if a root `app/` exists. Keep the app under `src/`.
+- The Node instrumentation hook imports the review-data loaders, so
+  Turbopack's trace globs `src`, `e2e` and `review-data` into
+  `instrumentation.js.nft.json` even though `outputFileTracingExcludes` does
+  not apply to that trace. `scripts/check-standalone.mjs --clean` removes
+  entries referenced only by the instrumentation trace; anything a route trace
+  references still fails the build. Keep that distinction instead of deleting
+  entries unconditionally.
 - The Better Auth CLI is pinned to `1.7.14` in `package.json`; bump it together with `better-auth`.
 - `auth-schema.ts` is generated. Regenerate it; do not patch it by hand.
 - Drizzle Kit loads `.env` automatically, but tests pass `DATABASE_URL` explicitly.

@@ -26,6 +26,9 @@ services:
       # readable by the container's node user:
       #   chmod -R a+rX ./review-data
       - ./review-data:/data/reviews:ro
+      # Optional hourly exports: set EXPORT_DIR=/data/exports in deploy.env and
+      # uncomment this writable volume (create it with chown 1000:1000).
+      # - ./exports:/data/exports
     security_opt:
       - no-new-privileges:true
     logging:
