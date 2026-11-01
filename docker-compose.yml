@@ -1,52 +1,35 @@
 services:
   app:
-    build: .
-    image: review-pls:latest
+    image: ${REVIEW_PLS_IMAGE:-ghcr.io/404simon/review-pls:latest}
     container_name: review-pls
     restart: unless-stopped
-
+    init: true
+    stop_grace_period: 30s
+    env_file:
+      - ${DEPLOY_ENV_FILE:-./deploy.env}
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: "/data/review.db"
+      REVIEW_DATA_ROOT: "/data/reviews"
     # Only expose the port on the host loopback interface; the reverse proxy
     # (nginx, Caddy, Traefik, ...) terminates TLS and forwards to it.
     ports:
       - "127.0.0.1:3000:3000"
-
-    environment:
-      # Public URL the app is reached at behind the proxy (https, no trailing slash).
-      BETTER_AUTH_URL: "https://review.example.com"
-
-      # At least 32 characters. Generate with: openssl rand -base64 48
-      BETTER_AUTH_SECRET: "replace-with-a-random-secret-at-least-32-chars"
-
-      # Invite code required to sign up. Keep it out of version control.
-      REGISTRATION_CODE: "replace-with-a-registration-code"
-
-      # Required contact address shown in the reviewer guide.
-      CONTACT_EMAIL: "simon@example.org"
-
-      # SQLite file inside the container; keep it on the bind mount below.
-      DATABASE_URL: "/data/review.db"
-
-      # Read-only review data. One directory per prepared batch. Create the
-      # host directory and make it world-readable before starting:
-      #   mkdir -p review-data && chmod -R a+rX review-data
-      REVIEW_DATA_ROOT: "/data/reviews"
-
-      # Accounts that are promoted to admin on every start, once registered.
-      # Promotion is one-way here: roles granted in /admin are left alone.
-      # Preview with `pnpm review:admin:sync --list`, or promote one account
-      # now with `--user-id <id>` (run on the host, not in this image).
-      ADMIN_EMAILS: "simon@example.org"
-
-      NODE_ENV: "production"
-      PORT: "3000"
-      HOSTNAME: "0.0.0.0"
-
     volumes:
-      # Bind mount the SQLite database (and its -wal/-shm files).
-      # The directory must exist and be writable by uid 1000:
+      # SQLite database plus its -wal/-shm files. The host directory must be
+      # writable by uid 1000 (the container's node user):
       #   mkdir -p data && sudo chown -R 1000:1000 data
       - ./data:/data
       # Prepared review data is mounted read-only. Never commit it, and make it
       # readable by the container's node user:
       #   chmod -R a+rX ./review-data
       - ./review-data:/data/reviews:ro
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

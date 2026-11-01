@@ -4,7 +4,7 @@ Human review of AuditOwl / review-agent overlap and new findings. The app reads 
 
 ## Docker
 
-The image is built from `Dockerfile` (Next.js standalone output) and is intended to run behind a reverse proxy that terminates TLS. The runtime image includes `ripgrep` because the evidence search route spawns `rg`.
+The published image is pulled from GHCR (`ghcr.io/404simon/review-pls`); `Dockerfile` builds the same Next.js standalone output locally. Run it behind a reverse proxy that terminates TLS. The runtime image includes `ripgrep` because the evidence search route spawns `rg`.
 
 1. Create the bind-mounted database directory. The container runs as uid/gid `1000` (`node`), so the host directory must be writable by that user:
 
@@ -32,16 +32,32 @@ The image is built from `Dockerfile` (Next.js standalone output) and is intended
    ssh server 'chmod -R a+rX /srv/review-pls/review-data'
    ```
 
-3. Set the environment variables in `docker-compose.yml`. `CONTACT_EMAIL` is the required contact address shown in the reviewer guide, and `ADMIN_EMAILS` lists the accounts that become admin on start; see the bootstrap notes below.
-
-4. Start it:
+3. Create the runtime environment file from the example and fill it in. `docker-compose.yml` loads `deploy.env` automatically; it is gitignored and must never be committed:
 
    ```bash
-   docker compose up -d --build
+   cp deploy.env.example deploy.env
+   chmod 600 deploy.env
+   # edit deploy.env: BETTER_AUTH_URL, BETTER_AUTH_SECRET, REGISTRATION_CODE,
+   # CONTACT_EMAIL and ADMIN_EMAILS
+   ```
+
+   `CONTACT_EMAIL` is the required contact address shown in the reviewer guide, and `ADMIN_EMAILS` lists the accounts that become admin on start; see the bootstrap notes below.
+
+4. Pull the published image and start it:
+
+   ```bash
+   docker compose pull
+   docker compose up -d
    docker compose logs -f
    ```
 
-On every start the container runs pending Drizzle migrations before accepting requests (see `src/instrumentation.ts`), so upgrades just need a rebuild and restart. The SQLite database lives on the `./data` bind mount, including its `-wal`/`-shm` files, so use a local filesystem (not NFS/SMB).
+   If the GHCR package is private, log in first with a token that has `read:packages`:
+
+   ```bash
+   echo "$GHCR_TOKEN" | docker login ghcr.io -u 404Simon --password-stdin
+   ```
+
+On every start the container runs pending Drizzle migrations before accepting requests (see `src/instrumentation.ts`), so upgrades are a pull and restart. The SQLite database lives on the `./data` bind mount, including its `-wal`/`-shm` files, so use a local filesystem (not NFS/SMB).
 
 The app listens on port `3000` inside the container. `docker-compose.yml` publishes it on `127.0.0.1:3000` only; point the reverse proxy at that address and forward the `Host`, `X-Forwarded-For`, and `X-Forwarded-Proto` headers.
 

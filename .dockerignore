@@ -13,6 +13,7 @@ exports
 # local databases and secrets (never bake these into the image)
 local.db*
 .env*
+deploy.env
 
 # tests and reports
 e2e

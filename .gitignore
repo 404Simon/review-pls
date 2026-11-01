@@ -35,6 +35,9 @@ pnpm-debug.log*
 local.db*
 /data/
 
+# deployment secrets
+/deploy.env
+
 # generated review data and exports
 /review-data/
 /exports/
