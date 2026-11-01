@@ -38,7 +38,7 @@ export const TOUR_STEPS: Record<TourId, TourStep[]> = {
     ),
     anchored(
       TOUR_ANCHORS.guideJob,
-      "Two shapes of work",
+      "Three shapes of work",
       "Most items are either a proposed match cluster or a finding that only one system reported.",
       "top"
     ),

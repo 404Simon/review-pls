@@ -17,22 +17,19 @@ export interface TourMetadata {
 export const TOURS: Record<TourId, TourMetadata> = {
   guide: {
     label: "Guide",
-    description: "The protocol and the vocabulary, in one place.",
+    description: "This pages Tour.",
   },
   dashboard: {
     label: "Dashboard",
-    description:
-      "Find a paper, narrow the queue and pick up the item you left open.",
+    description: "Overview of the papers. Start here.",
   },
   paper: {
     label: "Paper",
-    description:
-      "Read the caveats, the progress and the item list for one paper.",
+    description: "Overview of the Paper and its Findings.",
   },
   item: {
     label: "Review item",
-    description:
-      "Reserve the item, inspect the evidence and record your decision.",
+    description: "How to reserve a finding and decide if its valid.",
   },
 }
 

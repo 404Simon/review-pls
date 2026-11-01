@@ -1,17 +1,11 @@
 import {
-  CheckCircle2,
   ClipboardCheck,
   Compass,
   FileSearch,
   FileText,
   GitCompare,
   LayoutDashboard,
-  Lock,
-  Mail,
   Scale,
-  ShieldCheck,
-  Sparkles,
-  StickyNote,
   Tags,
   type LucideIcon,
 } from "lucide-react"
@@ -46,9 +40,9 @@ const TOUR_ICONS: Record<TourId, LucideIcon> = {
 const CHECKLIST = [
   "Reserve the item. The claim is yours for two idle hours; it extends while the page is open and whenever a draft is saved.",
   "Read the automated verification note. It usually says what was checked and what came back.",
-  "Take a look at the evidence. Beware that for obvious findings it might not be necessary.",
-  "Use the paper context excerpt when the finding depends on what the paper reports. A page reference is a pointer, not proof.",
-  "Compare both sides for a cluster or a related pair. Matching wording is not enough when the line ranges or the defects differ.",
+  "Take a look at the evidence.",
+  "Use the paper context excerpt when the finding depends on what the paper reports.",
+  "Compare both sides for a cluster or a related pair.",
   "Decide and optionally add a concrete note naming the line, output or page that settled it. Save and close, or mark unsure if the evidence is genuinely incomplete.",
 ] as const
 
@@ -119,8 +113,8 @@ export default async function GuidePage() {
               Thank you for checking our agent
             </h1>
             <p className="text-sm text-muted-foreground">
-              This page explains what we are comparing, why your
-              decision matters and how the workspace is organised.
+              This page explains what we are comparing, why your decision
+              matters and how the workspace is organised.
             </p>
           </div>
           <TourStartButton tour="guide" />
@@ -143,8 +137,9 @@ export default async function GuidePage() {
               this paper
             </a>{" "}
             ran agentic reviews over 100 NeurIPS papers, looking for
-            reproducibility problems and general software bugs. Its finding
-            was uncomfortable: many of their claims, e.g. a headline number, cannot be traced back to the code that produces them.
+            reproducibility problems and general software bugs. Its finding was
+            uncomfortable: many of their claims, e.g. a headline number, cannot
+            be traced back to the code that produces them.
           </p>
           <p>
             We are repeating that exercise on ISMB papers, with an open-weight
@@ -152,19 +147,23 @@ export default async function GuidePage() {
             improved runtime/harness (original authors just used Claude Code).
           </p>
           <p>
-            The question of this study is whether our agent matches AuditOwl&apos;s
-            findings. To find out, we ran our agent on a fraction of the NeurIPS
-            papers and then had a comparison agent read our findings and
-            AuditOwl&apos;s side by side. It grouped the two sets into match
-            clusters (findings that describe the same flaw) and one-sided
-            findings that only one system reported. That grouping is a proposal.
-            You are the one who decides whether it is right.
+            The question of this study is whether our agent matches
+            AuditOwl&apos;s findings. To find out, we ran our agent on a
+            fraction of the NeurIPS papers and then had a comparison agent read
+            our findings and AuditOwl&apos;s side by side. It grouped the two
+            sets into match clusters (findings that describe the same flaw) and
+            one-sided findings that only one system reported. Findings that
+            looked similar but were not merged stay in the one-sided lists and
+            are also shown as a related pair, so you can check that split. That
+            grouping is a proposal. You are the one who decides whether it is
+            right.
           </p>
           <p>
-            So we ask you to confirm or deny cluster matches and judge one-sided
-            findings against the paper, the code and the validation output.
-            “Unsure” is a valid result: it releases the item, keeps your note
-            visible and puts it back in the pool for someone with fresh eyes.
+            So we ask you to confirm or deny cluster matches, judge one-sided
+            findings against the paper, the code and the validation output, and
+            check the related-pair splits. “Unsure” is a valid result: it
+            releases the item, keeps your note visible and puts it back in the
+            pool for someone with fresh eyes.
           </p>
           <p>
             Thank you for spending your attention on this. Reading this much
@@ -178,9 +177,7 @@ export default async function GuidePage() {
             </a>{" "}
             or send me a Signal message.
           </p>
-          <p>
-            Simon
-          </p>
+          <p>Simon</p>
         </div>
       </section>
 
@@ -190,11 +187,12 @@ export default async function GuidePage() {
       >
         <div className="flex flex-col gap-1">
           <h2 className="font-heading text-lg font-medium">
-            Your job, in two shapes
+            Your job, in three shapes
           </h2>
           <p className="text-sm text-muted-foreground">
-            Almost every item is one of these. Related pairs are the exception,
-            and they are still one decision.
+            Almost every item is a cluster or a one-sided finding. Related pairs
+            are the exception: they add a cross-check, but they never replace
+            the one-sided review of the two findings they connect.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -205,14 +203,12 @@ export default async function GuidePage() {
                 Match clusters
               </CardTitle>
               <CardDescription>
-                Two findings, or two groups of findings, that may describe the
-                same defect.
+                A group of findings, that may describe the same defect.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               Read both sides and choose same defect or not a match. When it is
-              a match, confirm or adjust the proposed strength and coverage. The
-              verification note is evidence, not a verdict.
+              a match, confirm or adjust the proposed strength and coverage.
             </CardContent>
           </Card>
           <Card>
@@ -229,7 +225,6 @@ export default async function GuidePage() {
               For an agent-only finding, decide whether it is valid and whether
               it adds something real. For an AuditOwl-only finding, decide why
               the agent missed it and whether the original finding holds up.
-              Judge it from the paper, the code and the check output.
             </CardContent>
           </Card>
         </div>
@@ -240,11 +235,19 @@ export default async function GuidePage() {
               Related pairs
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            A related pair is two findings that looked similar but were kept
-            apart instead of being merged. Your question is whether that
-            separation was right. Like every other item, one pair is one
-            decision.
+          <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
+            <p>
+              A related pair is two findings that looked similar but were kept
+              apart instead of being merged. Its only question is whether that
+              separation was right.
+            </p>
+            <p>
+              The pair does not replace the individual checks. The agent finding
+              is also an agent-only item and the AuditOwl finding is also an
+              AuditOwl-only item, so we judge each one on its own evidence as
+              well. Use the one-sided items to judge the findings themselves;
+              use the pair to second-guess the split.
+            </p>
           </CardContent>
         </Card>
       </section>
@@ -255,11 +258,10 @@ export default async function GuidePage() {
       >
         <div className="flex flex-col gap-1">
           <h2 className="font-heading text-lg font-medium">
-            Tours (two minutes each, no quiz)
+            Tours
           </h2>
           <p className="text-sm text-muted-foreground">
-            Four short tours, one per page. They point at things; they do not
-            change anything.
+            Four short tours, one per page. Might be helpful to get started.
           </p>
         </div>
         {example ? null : (
@@ -336,9 +338,7 @@ export default async function GuidePage() {
             Protocol, precisely
           </h2>
           <p className="text-sm text-muted-foreground">
-            The vocabulary used by the decision form, the history and the
-            exports. You do not need to memorise it; it is here when a label is
-            unclear.
+            The vocabulary used by the decision form, the history and the exports.
           </p>
         </div>
         <Card>
@@ -354,7 +354,9 @@ export default async function GuidePage() {
                 One item is one review decision. A match cluster is a single
                 item even when it contains several findings on either side. An
                 agent-only finding, an AuditOwl-only finding and a
-                related-not-matched pair are each one item too.
+                related-not-matched pair are each one item too. The two findings
+                in a related pair also appear as separate one-sided items, so
+                the pair is an extra cross-check, not a replacement.
               </Definition>
               <Definition term="Claim and lease">
                 The first reviewer to reserve an item holds a two-hour idle
@@ -380,7 +382,8 @@ export default async function GuidePage() {
                 blocker, <SeverityBadge severity="medium" /> is warning-tinted
                 and <SeverityBadge severity="low" /> is informational. A cluster
                 takes the maximum severity of both sides. Related pairs take the
-                maximum of the two findings.
+                maximum of the two findings, while their one-sided items keep
+                each finding&apos;s own severity.
               </Definition>
               <Definition term="Match, strength and coverage">
                 A match is a pair or cluster that describes the same defect.{" "}
@@ -424,29 +427,6 @@ export default async function GuidePage() {
           </CardContent>
         </Card>
       </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ShieldCheck data-icon="inline-start" />
-            Status at a glance
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 text-sm">
-          <span className="flex items-center gap-2">
-            <StatusBadge status="open" /> no active claim, no final decision
-          </span>
-          <span className="flex items-center gap-2">
-            <StatusBadge status="claimed" /> a live two-hour claim
-          </span>
-          <span className="flex items-center gap-2">
-            <StatusBadge status="unsure" /> the latest attempt is unsure
-          </span>
-          <span className="flex items-center gap-2">
-            <StatusBadge status="closed" /> a final decision exists
-          </span>
-        </CardContent>
-      </Card>
     </div>
   )
 }
