@@ -256,7 +256,6 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
             currentUserId={session.user.id}
             filters={filters}
             tab={tab}
-            focusSearch={query.focus === "search"}
           />
         </CardContent>
       </Card>

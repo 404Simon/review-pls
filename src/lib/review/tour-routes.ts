@@ -17,8 +17,7 @@ export interface TourMetadata {
 export const TOURS: Record<TourId, TourMetadata> = {
   guide: {
     label: "Guide",
-    description:
-      "The protocol, the vocabulary and the shortcuts, in one place.",
+    description: "The protocol and the vocabulary, in one place.",
   },
   dashboard: {
     label: "Dashboard",

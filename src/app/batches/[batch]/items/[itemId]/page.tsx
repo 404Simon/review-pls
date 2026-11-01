@@ -182,10 +182,6 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
     target ? withQuery(itemPath(batchId, target.id), navParams) : null
 
   const paperHref = withQuery(paperPath(batchId, parsed.paperId), navParams)
-  const focusSearchHref = withQuery(paperPath(batchId, parsed.paperId), {
-    ...navParams,
-    focus: "search",
-  })
 
   const [historyRows, historyEvents, evidence] = await Promise.all([
     getItemDecisionRows(db, batchId, item),
@@ -264,7 +260,6 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
       )}
       paperFilesBase={`${paperPath(batchId, parsed.paperId)}/files`}
       repositories={paper.manifest.code}
-      focusSearchHref={focusSearchHref}
       returnHref={paperHref}
       serverNow={view.now}
       state={

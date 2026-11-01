@@ -37,7 +37,6 @@ export interface FilterBarProps {
     label: string
     placeholder: string
   }
-  focusSearch?: boolean
   className?: string
 }
 
@@ -46,18 +45,11 @@ export function FilterBar({
   params,
   fields,
   search,
-  focusSearch = false,
   className,
 }: FilterBarProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const searchTimer = useRef<number | null>(null)
-
-  useEffect(() => {
-    if (focusSearch) {
-      inputRef.current?.focus()
-    }
-  }, [focusSearch])
 
   // Leaving the page inside the debounce window must not navigate the next page
   // back to the page that was just left.
@@ -92,7 +84,6 @@ export function FilterBar({
     for (const key of ["severity", "kind", "status", "mine", "paper", "q"]) {
       delete next[key]
     }
-    delete next.focus
     router.replace(withQuery(basePath, next))
   }
 

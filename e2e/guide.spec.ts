@@ -221,45 +221,6 @@ test("a dashboard tour starts from the URL, strips it, and does not replay", asy
   await expect(page.locator(tourPopover)).toHaveCount(0)
 })
 
-test("an item tour suppresses page shortcuts until it closes", async ({
-  page,
-  request,
-}) => {
-  await signedInPage(page, request, "guide-item")
-  const url = "/batches/review-fixture/items/cluster:1002:M01"
-  await page.goto(url)
-  await expect(page.getByText("Automated comparator").first()).toBeVisible()
-  // Let the client shortcut listener hydrate before pressing a shortcut.
-  await page.waitForTimeout(750)
-
-  await page.getByRole("button", { name: "Start the review item tour" }).click()
-  await expect(page.locator(tourPopover)).toBeVisible()
-
-  await page.keyboard.press("j")
-  await page.waitForTimeout(500)
-  await expect(page).toHaveURL(url)
-
-  await page.keyboard.press("?")
-  await expect(
-    page.getByRole("heading", { name: "Keyboard shortcuts" })
-  ).toHaveCount(0)
-
-  await page.keyboard.press("Escape")
-  await expect(page.locator(tourPopover)).toHaveCount(0)
-
-  await page.keyboard.press("?")
-  await expect(
-    page.getByRole("heading", { name: "Keyboard shortcuts" })
-  ).toBeVisible()
-  await page.keyboard.press("Escape")
-  await expect(
-    page.getByRole("heading", { name: "Keyboard shortcuts" })
-  ).toHaveCount(0)
-
-  await page.keyboard.press("j")
-  await expect(page).not.toHaveURL(url)
-})
-
 test("every reviewer page exposes its own tour button", async ({
   page,
   request,

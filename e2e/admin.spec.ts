@@ -137,42 +137,6 @@ async function delayDraftSaves(page: Page, delayMs = 1_200) {
   })
 }
 
-test("shortcuts do nothing behind the admin release dialog", async ({
-  browser,
-}) => {
-  const reviewer = await newSignedInContext(browser, "release-guard")
-  const url = item("agent_only:1001:a5")
-
-  try {
-    await reviewer.page.goto(url)
-    await reviewer.page.getByRole("button", { name: "Reserve" }).click()
-    await expect(reviewer.page.getByText("Reserved by you")).toBeVisible()
-    await reviewer.page.waitForTimeout(750)
-
-    await reviewer.page
-      .getByRole("button", { name: "Release", exact: true })
-      .click()
-    await expect(
-      reviewer.page.getByRole("heading", { name: "Release your claim?" })
-    ).toBeVisible()
-    await reviewer.page.keyboard.press("s")
-    await reviewer.page.waitForTimeout(500)
-
-    await expect(reviewer.page.getByText("Reserved by you")).toBeVisible()
-    await expect(
-      reviewer.page.getByText("Final decision", { exact: true })
-    ).not.toBeVisible()
-
-    await reviewer.page.keyboard.press("Escape")
-    await expect(
-      reviewer.page.getByRole("heading", { name: "Release your claim?" })
-    ).toHaveCount(0)
-    await expect(reviewer.page.getByText("Reserved by you")).toBeVisible()
-  } finally {
-    await reviewer.context.close()
-  }
-})
-
 test("an admin self-release is not re-claimed by a pending autosave", async ({
   browser,
 }) => {
@@ -229,12 +193,6 @@ test("an admin releases another reviewer's claim", async ({ browser }) => {
     await admin.page.goto(url)
     await expect(admin.page.getByText("Reserved by").first()).toBeVisible()
     await admin.page.getByRole("button", { name: "Release claim" }).click()
-    await expect(
-      admin.page.getByRole("heading", { name: "Release this claim?" })
-    ).toBeVisible()
-    await admin.page.keyboard.press("s")
-    await admin.page.waitForTimeout(500)
-    // The shortcut never saves a decision behind the alert dialog.
     await expect(
       admin.page.getByRole("heading", { name: "Release this claim?" })
     ).toBeVisible()

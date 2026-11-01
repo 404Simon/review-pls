@@ -6,7 +6,6 @@ import {
   FileText,
   History,
   Info,
-  Keyboard,
   PencilLine,
   ShieldCheck,
   X,
@@ -32,7 +31,6 @@ import { FindingsReview } from "@/components/review/findings-review"
 import type { LinkCandidate } from "@/components/review/link-picker"
 import { PaperActions } from "@/components/review/paper-actions"
 import { SeverityBadge } from "@/components/review/severity-badge"
-import { ShortcutHelp } from "@/components/review/shortcut-help"
 import { TourStartButton } from "@/components/review/tour-start-button"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -51,12 +49,6 @@ import {
 import { describeDecision } from "@/lib/review/decision-format"
 import type { EvidenceBundle } from "@/lib/review/evidence"
 import { formatItemKind } from "@/lib/review/format"
-import {
-  hasOpenOverlay,
-  isSearchKey,
-  isShortcutSuppressed,
-  isTypingTarget,
-} from "@/lib/review/shortcuts"
 import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 import type { CodeRepoManifest, ReviewItem } from "@/lib/review/types"
 
@@ -126,7 +118,6 @@ export interface ItemReviewProps {
   paperFilesBase: string
   repositories: readonly CodeRepoManifest[]
   returnHref: string
-  focusSearchHref: string
   state: ItemReviewState
   history: readonly DecisionHistoryEntry[]
   reviewerNames: Record<string, string>
@@ -152,7 +143,6 @@ export function ItemReview({
   paperFilesBase,
   repositories,
   returnHref,
-  focusSearchHref,
   state,
   history,
   reviewerNames,
@@ -168,7 +158,6 @@ export function ItemReview({
 }: ItemReviewProps) {
   const router = useRouter()
   const [pending, setPending] = useState(false)
-  const [helpOpen, setHelpOpen] = useState(false)
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [extendedLease, setExtendedLease] = useState<{
     claimId: string
@@ -366,160 +355,6 @@ export function ItemReview({
     return () => document.removeEventListener("click", onClick, true)
   }, [canEdit, router])
 
-  useEffect(() => {
-    function nonDecisionOverlayOpen(): boolean {
-      return hasOpenOverlay((selector) =>
-        Array.from(document.querySelectorAll(selector)).some(
-          (element) => !element.hasAttribute("data-decision-popover")
-        )
-          ? selector
-          : null
-      )
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (helpOpen) {
-        return
-      }
-
-      if (popoverOpen && canEdit) {
-        // The decision dialog owns the keyboard. Its verdict/save/unsure
-        // shortcuts stay available even though dialogs normally suppress the
-        // page shortcuts.
-        if (
-          event.defaultPrevented ||
-          event.metaKey ||
-          event.ctrlKey ||
-          event.altKey ||
-          isTypingTarget(event.target) ||
-          nonDecisionOverlayOpen()
-        ) {
-          return
-        }
-        if (/^[1-5]$/.test(event.key)) {
-          const handled = canEdit
-            ? (decisionActions.current?.chooseVerdict(Number(event.key) - 1) ??
-              false)
-            : false
-          if (handled) {
-            event.preventDefault()
-          }
-          return
-        }
-        if (event.key === "s") {
-          if (canEdit && decisionActions.current) {
-            event.preventDefault()
-            decisionActions.current.save()
-          }
-          return
-        }
-        if (event.key === "u") {
-          if (canEdit && decisionActions.current) {
-            event.preventDefault()
-            decisionActions.current.markUnsure()
-          }
-          return
-        }
-        if (isSearchKey(event.key)) {
-          event.preventDefault()
-          void navigateTo(focusSearchHref)
-        }
-        return
-      }
-
-      if (isShortcutSuppressed(event)) {
-        return
-      }
-      if (event.key === "?" || (event.key === "/" && event.shiftKey)) {
-        event.preventDefault()
-        setHelpOpen(true)
-        return
-      }
-      if (isSearchKey(event.key)) {
-        // `/` and `'` both point at the search field. The item page has no
-        // search input, so reuse the focused search link target instead of
-        // consuming the key without doing anything.
-        event.preventDefault()
-        void navigateTo(focusSearchHref)
-        return
-      }
-      if (/^[1-5]$/.test(event.key)) {
-        const handled = canEdit
-          ? (decisionActions.current?.chooseVerdict(Number(event.key) - 1) ??
-            false)
-          : false
-        if (handled) {
-          event.preventDefault()
-        }
-        return
-      }
-      switch (event.key) {
-        case "j":
-          if (nextItemHref) {
-            event.preventDefault()
-            void navigateTo(nextItemHref)
-          }
-          break
-        case "k":
-          if (previousItemHref) {
-            event.preventDefault()
-            void navigateTo(previousItemHref)
-          }
-          break
-        case "s":
-          if (canEdit && decisionActions.current) {
-            event.preventDefault()
-            decisionActions.current.save()
-          }
-          break
-        case "u":
-          if (canEdit && decisionActions.current) {
-            event.preventDefault()
-            decisionActions.current.markUnsure()
-          }
-          break
-        case "r":
-          if (
-            !frozen &&
-            claim?.userId === currentUserId &&
-            status !== "closed"
-          ) {
-            event.preventDefault()
-            void release()
-          }
-          break
-        case "e": {
-          event.preventDefault()
-          const evidence = document.getElementById("evidence")
-          const reduceMotion = window.matchMedia(
-            "(prefers-reduced-motion: reduce)"
-          ).matches
-          evidence?.scrollIntoView({
-            behavior: reduceMotion ? "auto" : "smooth",
-            block: "start",
-          })
-          evidence?.focus({ preventScroll: true })
-          break
-        }
-      }
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [
-    canEdit,
-    claim?.userId,
-    currentUserId,
-    frozen,
-    popoverOpen,
-    focusSearchHref,
-    helpOpen,
-    navigateTo,
-    nextItemHref,
-    previousItemHref,
-    release,
-    status,
-  ])
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
@@ -560,14 +395,6 @@ export function ItemReview({
             }}
           >
             <ArrowRight />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="Keyboard shortcuts"
-            onClick={() => setHelpOpen(true)}
-          >
-            <Keyboard />
           </Button>
           <TourStartButton tour="item" />
         </div>
@@ -723,8 +550,6 @@ export function ItemReview({
           </Disclosure>
         </div>
       </div>
-
-      <ShortcutHelp open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   )
 }

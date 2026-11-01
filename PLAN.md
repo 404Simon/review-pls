@@ -947,26 +947,11 @@ Suggested additions: `badge`, `tabs`, `table`, `select`, `textarea`, `dialog`,
   buttons.
 - Motion: subtle; respect reduced motion.
 
-### 10.4 Keyboard and speed
+### 10.4 Workflow and speed
 
-- `j` / `k`: next / previous item in the current filtered list.
-- `1`–`5`: choose the primary verdict for the current item type.
-- `s`: save and close (or save draft if incomplete).
-- `u`: mark unsure and release.
-- `r`: release without decision.
-- `e`: focus the evidence panel.
-- `/`: focus search.
-- `?`: shortcut help.
-- Keyboard shortcuts are one shared guard per page: they are ignored while
-  typing in an input/textarea/select/contenteditable, while the help dialog is
-  open, and while any modal dialog, alert dialog, popover, menu or command
-  palette is open (Base UI `data-open` plus role/`aria-modal` selectors). `d`
-  does not toggle the theme behind a modal either.
-- `/` and `?` also work on dashboard, queue and paper pages; `/` and `'` are
-  consumed so Firefox quick-find does not open.
-- The queue remembers filters in the URL.
+- Filters live in the URL, so a filtered view can be bookmarked and shared.
 - “Save & next” is the primary action; after closing, navigate to the next
-  unclaimed item in the current filter or return to the queue.
+  unclaimed item in the current filter or return to the paper.
 
 ---
 
@@ -1262,7 +1247,7 @@ Deliverables:
 - `/batches/[batch]/papers/[paperId]`
 - `/batches/[batch]/items/[itemId]`
 - `claim-bar`, `comparator-panel`, `decision-form`, `decision-history`
-- keyboard shortcuts, filters, autosave, toasts
+- filters, autosave, toasts
 - `/guide`
 - E2E fixture and core flows
 

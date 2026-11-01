@@ -5,7 +5,6 @@ import {
   FileSearch,
   FileText,
   GitCompare,
-  Keyboard,
   LayoutDashboard,
   Lock,
   Mail,
@@ -30,7 +29,6 @@ import {
 } from "@/components/ui/card"
 import { getContactEmail } from "@/lib/contact-email"
 import { loadGuideExample, type GuideExample } from "@/lib/review/guide-example"
-import { SHORTCUTS } from "@/lib/review/shortcuts"
 import {
   TOUR_ANCHORS,
   TOUR_IDS,
@@ -427,54 +425,28 @@ export default async function GuidePage() {
         </Card>
       </section>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck data-icon="inline-start" />
-              Status at a glance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 text-sm">
-            <span className="flex items-center gap-2">
-              <StatusBadge status="open" /> no active claim, no final decision
-            </span>
-            <span className="flex items-center gap-2">
-              <StatusBadge status="claimed" /> a live two-hour claim
-            </span>
-            <span className="flex items-center gap-2">
-              <StatusBadge status="unsure" /> the latest attempt is unsure
-            </span>
-            <span className="flex items-center gap-2">
-              <StatusBadge status="closed" /> a final decision exists
-            </span>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Keyboard data-icon="inline-start" />
-              Keyboard shortcuts
-            </CardTitle>
-            <CardDescription>Ignored while typing in a field.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-              {SHORTCUTS.map((shortcut) => (
-                <div key={shortcut.keys} className="contents">
-                  <dt>
-                    <kbd className="rounded border bg-muted px-1.5 py-0.5 font-mono text-xs">
-                      {shortcut.keys}
-                    </kbd>
-                  </dt>
-                  <dd className="text-muted-foreground">{shortcut.action}</dd>
-                </div>
-              ))}
-            </dl>
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck data-icon="inline-start" />
+            Status at a glance
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm">
+          <span className="flex items-center gap-2">
+            <StatusBadge status="open" /> no active claim, no final decision
+          </span>
+          <span className="flex items-center gap-2">
+            <StatusBadge status="claimed" /> a live two-hour claim
+          </span>
+          <span className="flex items-center gap-2">
+            <StatusBadge status="unsure" /> the latest attempt is unsure
+          </span>
+          <span className="flex items-center gap-2">
+            <StatusBadge status="closed" /> a final decision exists
+          </span>
+        </CardContent>
+      </Card>
     </div>
   )
 }

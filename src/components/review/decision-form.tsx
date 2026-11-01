@@ -452,12 +452,9 @@ function noteErrorFrom(message: string): string | null {
 
 const SELECT_CLASS = "w-full"
 
-/** Item-page shortcuts drive the form through this imperative handle. */
+/** Item-page navigation drives the form through this imperative handle. */
 export interface DecisionFormActions {
-  chooseVerdict(index: number): boolean
-  save(): void
-  markUnsure(): void
-  /** Persist pending edits before a keyboard/button navigation. */
+  /** Persist pending edits before a button navigation. */
   flushDraft(): Promise<void>
   /** True while the form has unsaved edits or a draft write in flight. */
   hasPendingChanges(): boolean
@@ -631,7 +628,7 @@ export function DecisionForm({
       } = {}
     ): Promise<boolean> => {
       // A release or discard owns the item until its request settles. A
-      // keyboard/button save must not write a decision behind it.
+      // save must not write a decision behind it.
       if (suspendedRef.current) {
         return false
       }
@@ -651,7 +648,7 @@ export function DecisionForm({
 
       const result = buildPayload(item, current, forcedVerdict)
       if (!result.ok) {
-        // PLAN §10.4: `s` on an incomplete form still saves a draft.
+        // An incomplete form still saves a draft instead of failing outright.
         if (mode === "closed") {
           const draft = buildDraftPayload(item, current, forcedVerdict)
           if (draft.ok) {
@@ -759,32 +756,6 @@ export function DecisionForm({
   useImperativeHandle(
     actionRef,
     () => ({
-      chooseVerdict(index: number): boolean {
-        if (suspendedRef.current) {
-          return false
-        }
-        const option = options[index]
-        if (!option || option.disabled) {
-          return false
-        }
-        update("verdict", option.value)
-        setNoteError(null)
-        return true
-      },
-      save() {
-        if (suspendedRef.current) {
-          return
-        }
-        void commit("closed")
-      },
-      markUnsure() {
-        if (suspendedRef.current) {
-          return
-        }
-        update("verdict", "unsure")
-        setNoteError(null)
-        void commit("unsure", { forcedVerdict: "unsure" })
-      },
       flushDraft,
       hasPendingChanges() {
         return signature !== savedSignature || draftSave.current !== null
@@ -793,9 +764,7 @@ export function DecisionForm({
       resumeAutosave,
     }),
     [
-      commit,
       flushDraft,
-      options,
       resumeAutosave,
       savedSignature,
       signature,

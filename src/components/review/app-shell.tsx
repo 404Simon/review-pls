@@ -5,7 +5,6 @@ import { Suspense } from "react"
 import { BatchNav } from "@/components/review/batch-nav"
 import { GithubIcon } from "@/components/review/github-icon"
 import { BatchSelect } from "@/components/review/batch-select"
-import { KeyboardLayer } from "@/components/review/keyboard-layer"
 import { ThemeToggle } from "@/components/review/theme-toggle"
 import { UserMenu } from "@/components/review/user-menu"
 import { WorkspaceNav } from "@/components/review/workspace-nav"
@@ -70,7 +69,6 @@ export async function AppShell({
       >
         Skip to content
       </a>
-      <KeyboardLayer />
       <header
         data-tour={TOUR_ANCHORS.shellNav}
         className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70"

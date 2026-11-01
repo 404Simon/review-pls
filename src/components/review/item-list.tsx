@@ -31,7 +31,6 @@ export interface ItemListProps {
   currentUserId: string
   filters: ReviewFilters
   tab: ItemTab
-  focusSearch: boolean
 }
 
 export function ItemList({
@@ -44,7 +43,6 @@ export function ItemList({
   currentUserId,
   filters,
   tab,
-  focusSearch,
 }: ItemListProps) {
   const router = useRouter()
   const activeFilters =
@@ -156,7 +154,6 @@ export function ItemList({
         <FilterBar
           basePath={basePath}
           params={params}
-          focusSearch={focusSearch}
           fields={[
             {
               key: "severity",
