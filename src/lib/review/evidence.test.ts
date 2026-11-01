@@ -100,6 +100,37 @@ describe("buildCsvTable", () => {
     expect(table.totalRows).toBe(MAX_CSV_ROWS + 5)
     expect(table.truncated).toBe(true)
   })
+
+  it("highlights the output row a finding quotes", () => {
+    const outputCsv = [
+      "artefact,summary",
+      'Table 1,"ABSENT: no baseline code"',
+      'Table 7,"ABSENT: no variance code"',
+    ].join("\n")
+    const table = buildCsvTable(outputCsv, {
+      file: "out/report.csv",
+      lineStart: null,
+      lineEnd: null,
+      quote: "ABSENT: no variance code",
+    })
+    expect(table.rows.filter((row) => row.highlight)).toHaveLength(1)
+    expect(table.rows[1].highlight).toBe(true)
+  })
+
+  it("does not highlight arbitrary rows for a code quote", () => {
+    const outputCsv = [
+      "artefact,summary",
+      'Table 1,"ABSENT: no baseline code"',
+      'Table 7,"ABSENT: no variance code"',
+    ].join("\n")
+    const table = buildCsvTable(outputCsv, {
+      file: "out/report.csv",
+      lineStart: null,
+      lineEnd: null,
+      quote: "import torch\nmodel = build_model()",
+    })
+    expect(table.rows.some((row) => row.highlight)).toBe(false)
+  })
 })
 
 describe("parsePaperPages", () => {

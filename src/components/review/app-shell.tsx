@@ -3,6 +3,7 @@ import Link from "next/link"
 import { Suspense } from "react"
 
 import { BatchNav } from "@/components/review/batch-nav"
+import { GithubIcon } from "@/components/review/github-icon"
 import { BatchSelect } from "@/components/review/batch-select"
 import { KeyboardLayer } from "@/components/review/keyboard-layer"
 import { ThemeToggle } from "@/components/review/theme-toggle"
@@ -125,8 +126,9 @@ export async function AppShell({
             href="https://github.com/404Simon/review-pls"
             target="_blank"
             rel="noreferrer"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
+            <GithubIcon />
             Thanks for your help &lt;3
           </Link>
         </div>

@@ -12,7 +12,7 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
   },
   { keys: "u", action: "Mark unsure and release the claim" },
   { keys: "r", action: "Release the claim without a decision" },
-  { keys: "e", action: "Jump to the evidence panel" },
+  { keys: "e", action: "Jump to the findings and evidence" },
   { keys: "/", action: "Focus the search field" },
   { keys: "?", action: "Open this shortcut help" },
   { keys: "d", action: "Toggle the colour theme" },

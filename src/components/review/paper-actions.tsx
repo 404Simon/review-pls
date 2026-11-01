@@ -1,6 +1,7 @@
-import { ExternalLink, FileText, Folder, GitBranch } from "lucide-react"
+import { ExternalLink, FileText, Folder } from "lucide-react"
 import Link from "next/link"
 
+import { GithubIcon } from "@/components/review/github-icon"
 import { buttonVariants } from "@/components/ui/button"
 import { githubTreeUrl } from "@/lib/review/github"
 import type { CodeRepoManifest } from "@/lib/review/types"
@@ -52,7 +53,7 @@ export function PaperActions({
             aria-label={`Open ${repo.name} on GitHub`}
             className={buttonVariants({ variant: "outline", size: "sm" })}
           >
-            <GitBranch data-icon="inline-start" />
+            <GithubIcon data-icon="inline-start" />
             <span className="max-w-56 truncate">{repo.name}</span>
             <ExternalLink data-icon="inline-end" className="size-3" />
           </a>

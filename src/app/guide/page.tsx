@@ -161,11 +161,11 @@ export default function GuidePage() {
             <CardContent>
               <ol className="flex flex-col gap-3 text-sm">
                 {[
-                  "Reserve the item. Read the title and the comparator’s proposed labels, but do not treat them as the answer.",
-                  "Open the evidence panel and check the cited lines. Confirm the quote badge and the line range.",
-                  "Check the checks tab for the script output. If an artifact is missing, say so in the note.",
-                  "Use the paper tab when the claim is about what the paper reports. Check the page reference.",
-                  "Skim both audit reports for the surrounding argument, especially on miss reasons.",
+                  "Reserve the item. Expand a finding to read its claim; clusters list every grouped finding.",
+                  "Read the automated verification note. It usually states what was checked and what the result was.",
+                  "Open the code evidence and confirm the cited lines and the quote badge.",
+                  "Open Check evidence and inspect the outputs first. Open the script only when you need to know how the output was produced.",
+                  "Use the paper context excerpt when the finding depends on what the paper reports.",
                   "Choose a verdict. Adjust proposed labels only when the evidence supports a different strength, coverage or verification.",
                   "Write a short note with the line, output or page that decided it. Save and close, or mark unsure if the evidence is genuinely incomplete.",
                 ].map((step, index) => (
@@ -217,11 +217,11 @@ export default function GuidePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            The code tab resolves the cited path inside the paper’s repository
-            snapshot, shows 40 lines of context and highlights the cited range.
-            Use “Open full file”, “Open repo tree” and “Search this repo” when
-            the anchor is missing. An absence claim needs the tree and search
-            more than the viewer.
+            The evidence trail resolves the cited path inside the paper’s
+            repository snapshot, shows the surrounding code and highlights the
+            cited range. For absence claims, use “Search repo” and the closest
+            matches. Open Check evidence to see outputs before the script
+            source.
           </CardContent>
         </Card>
         <Card>
@@ -232,9 +232,9 @@ export default function GuidePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            The paper tab opens the PDF at the cited page and shows the
-            finding’s quote above it. The text search covers the extracted text
-            and tells you when only a prefix was searched. A page reference is a
+            The paper context shows the recorded reference and the exact
+            extracted-text excerpt around the finding’s quote. Open the PDF from
+            the page header when you need the full layout. A page reference is a
             pointer, not proof; read the surrounding paragraph.
           </CardContent>
         </Card>
@@ -246,10 +246,10 @@ export default function GuidePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            Clusters and related pairs show both findings side by side. Check
-            the claim, the cited file and the verification note on each side.
-            Agreement in wording is not enough when the line ranges or the
-            underlying defect differ.
+            Clusters and related pairs list every finding; expand them to
+            compare the claim, the cited file and the evidence. Agreement in
+            wording is not enough when the line ranges or the underlying defect
+            differ.
           </CardContent>
         </Card>
       </div>

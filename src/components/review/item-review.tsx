@@ -3,7 +3,6 @@
 import {
   ArrowLeft,
   ArrowRight,
-  Bot,
   FileText,
   History,
   Info,
@@ -29,8 +28,7 @@ import {
   type DecisionHistoryEntry,
 } from "@/components/review/decision-history"
 import { Disclosure } from "@/components/review/disclosure"
-import { EvidencePanel } from "@/components/review/evidence-panel"
-import { FindingOverview } from "@/components/review/finding-overview"
+import { FindingsReview } from "@/components/review/findings-review"
 import type { LinkCandidate } from "@/components/review/link-picker"
 import { PaperActions } from "@/components/review/paper-actions"
 import { SeverityBadge } from "@/components/review/severity-badge"
@@ -59,6 +57,19 @@ import {
   isTypingTarget,
 } from "@/lib/review/shortcuts"
 import type { CodeRepoManifest, ReviewItem } from "@/lib/review/types"
+
+function reviewQuestion(kind: ReviewItem["kind"]): string {
+  switch (kind) {
+    case "cluster":
+      return "Do these findings describe the same defect?"
+    case "related":
+      return "Were these findings correctly kept apart?"
+    case "auditowl_only":
+      return "Is AuditOwl's finding valid, and why did the agent miss it?"
+    case "agent_only":
+      return "Is this finding valid?"
+  }
+}
 
 function isInternalAppPath(pathname: string): boolean {
   return (
@@ -558,6 +569,9 @@ export function ItemReview({
         <h1 className="max-w-4xl font-heading text-lg font-medium text-balance sm:text-xl">
           {item.title}
         </h1>
+        <p className="text-sm text-muted-foreground">
+          {reviewQuestion(item.kind)}
+        </p>
         <Link
           href={paperHref}
           className="flex w-fit items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
@@ -671,24 +685,9 @@ export function ItemReview({
       ) : null}
 
       <div className="flex flex-col gap-6">
-        <FindingOverview item={item} />
+        <FindingsReview key={item.id} item={item} bundle={evidence} />
 
-        <section
-          id="evidence"
-          tabIndex={-1}
-          className="flex scroll-mt-24 flex-col gap-3 outline-none"
-        >
-          <h2 className="font-heading text-lg font-medium">Evidence</h2>
-          <EvidencePanel bundle={evidence} />
-        </section>
-
-        <Disclosure
-          title="Comparator proposal"
-          description="Proposed labels and verification from the automated comparator."
-          icon={Bot}
-        >
-          <ComparatorProposal item={item} />
-        </Disclosure>
+        <ComparatorProposal item={item} />
 
         <Disclosure
           title="Decision history"

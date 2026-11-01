@@ -331,7 +331,7 @@ test("paper page links non-GitHub code entries to the local file browser", async
   )
 })
 
-test("renders code, checks, paper and report evidence", async ({
+test("renders claims, code, check outputs and paper context", async ({
   page,
   request,
 }) => {
@@ -347,10 +347,15 @@ test("renders code, checks, paper and report evidence", async ({
       level: 1,
     })
   ).toBeVisible()
-  await expect(page.getByText("Comparator proposal").first()).toBeVisible()
-  await expect(page.getByRole("tab", { name: /Code/ })).toBeVisible()
+  await expect(
+    page.getByText("Do these findings describe the same defect?")
+  ).toBeVisible()
+  await expect(page.getByText("2 Grouped Findings")).toBeVisible()
+  await expect(page.getByText("quote matches")).toHaveCount(0)
+  await expect(page.getByText("Automated comparator").first()).toBeVisible()
+  await expect(page.getByText("Automated verification").first()).toBeVisible()
+  await page.getByRole("button", { name: "Open all" }).click()
 
-  await expect(page.getByText("quote exact").first()).toBeVisible()
   await expect(
     page.getByText("code/fixturerepo/train.py").first()
   ).toBeVisible()
@@ -360,43 +365,25 @@ test("renders code, checks, paper and report evidence", async ({
     "href",
     "https://github.com/example/fixturerepo/blob/0123456789abcdef0123456789abcdef01234567/train.py#L10-L14"
   )
-  await expect(
-    page.getByRole("link", { name: "Browse repo at commit" }).first()
-  ).toHaveAttribute(
-    "href",
-    "https://github.com/example/fixturerepo/tree/0123456789abcdef0123456789abcdef01234567"
-  )
 
-  await page.getByRole("tab", { name: /Checks/ }).click()
-  await expect(
-    page.getByRole("tab", { name: "check_split.csv" }).first()
-  ).toBeVisible()
-  await page.getByRole("tab", { name: "check_split.csv" }).first().click()
+  // Check outputs are contracted inside the finding; open them explicitly.
+  await page
+    .getByRole("button", { name: /Check evidence/ })
+    .last()
+    .click()
+  await expect(page.getByText("check_split.csv").first()).toBeVisible()
   await expect(
     page.getByText("test split used for augmentation selection").first()
   ).toBeVisible()
   await expect(page.getByLabel("Filter CSV rows").first()).toBeVisible()
+  await expect(page.getByText("Show script source").first()).toBeVisible()
 
-  await page.getByRole("tab", { name: /Paper/ }).click()
-  await expect(page.getByTitle("Paper PDF")).toHaveCount(1)
-  await expect(page.getByTitle("Paper PDF")).toHaveAttribute("src", /#page=3/)
-  await expect(page.getByText("p. 2").first()).toBeVisible()
-
-  // One shared iframe: a page link on any finding updates the same viewer.
-  await page.getByRole("button", { name: "Show page 2" }).first().click()
-  await expect(page.getByTitle("Paper PDF")).toHaveCount(1)
-  await expect(page.getByTitle("Paper PDF")).toHaveAttribute("src", /#page=2/)
-
-  await page.getByLabel("Search the paper text").first().fill("test split")
-  await page
-    .getByRole("button", { name: "Search", exact: true })
-    .first()
-    .click()
-  await expect(page.getByText(/We select augmentations/).first()).toBeVisible()
-
-  await page.getByRole("tab", { name: /Reports/ }).click()
-  await expect(page.getByText("Finding a1:").first()).toBeVisible()
-  await expect(page.getByText("Open full report").first()).toBeVisible()
+  // The paper reference stays in the finding card; the evidence trail no longer
+  // embeds the PDF or offers full-text search.
+  await expect(page.getByText("Paper p. 2").first()).toBeVisible()
+  await expect(page.getByTitle("Paper PDF")).toHaveCount(0)
+  await expect(page.getByLabel("Search the paper text")).toHaveCount(0)
+  await expect(page.getByRole("tab")).toHaveCount(0)
 })
 
 test("item page links the paper PDF and repositories", async ({
@@ -451,4 +438,25 @@ test("missing code anchors link to the repository tree, not a blob", async ({
   await expect(page.getByRole("link", { name: "View on GitHub" })).toHaveCount(
     0
   )
+
+  // An unresolved anchor has no file preview, so the raw quote is the fallback.
+  await expect(page.getByText("Cited quote")).toBeVisible()
+  await expect(page.getByText("def load(path):")).toBeVisible()
+})
+
+test("a matched quote is shown once, inside the file preview", async ({
+  page,
+  request,
+}) => {
+  await signedInPage(page, request)
+  const url = "/batches/review-fixture/items/agent_only:1001:a2"
+  expect((await page.request.get(url)).status()).toBe(200)
+  await page.goto(url)
+
+  // The cited lines are highlighted in the preview; the same quote must not be
+  // repeated in the finding overview or as a separate quote block.
+  await expect(page.getByText("Cited quote")).toHaveCount(0)
+  await expect(
+    page.getByText("checkpoint = max(batch, key=lambda item: item.score)")
+  ).toHaveCount(1)
 })

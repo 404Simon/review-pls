@@ -48,6 +48,7 @@ export const MAX_CSV_ROWS = 100
 export const MAX_JSON_LINES = 200
 export const MAX_FINDINGS_PER_SIDE = 10
 export const MAX_CHECKS_PER_FINDING = 5
+export const MAX_OUTPUTS_PER_CHECK = 3
 export const MAX_PAPER_CONTEXTS = 3
 export const PAPER_CONTEXT_RADIUS = 200
 export const REPORT_CONTEXT_LINES = 40
@@ -373,6 +374,24 @@ interface CappedRead {
   size: number
   truncated: boolean
   binary: boolean
+}
+
+type EvidenceReadCache = Map<string, Promise<CappedRead | null>>
+
+/** Share large reads (paper text, audit reports) across findings in one page. */
+function readCappedShared(
+  cache: EvidenceReadCache,
+  absolutePath: string,
+  maxBytes: number
+): Promise<CappedRead | null> {
+  const key = `${absolutePath}:${maxBytes}`
+  const cached = cache.get(key)
+  if (cached) {
+    return cached
+  }
+  const read = readCapped(absolutePath, maxBytes)
+  cache.set(key, read)
+  return read
 }
 
 async function readCapped(
@@ -1031,9 +1050,33 @@ function referenceMatches(
   return referenceStart <= findingEnd && referenceEnd >= lineStart
 }
 
+function normalizedCell(value: string): string {
+  return value.replace(/\s+/g, " ").trim().toLowerCase()
+}
+
+/** A finding that cites an output row often quotes that row's summary cell. */
+function quoteMatchesCells(
+  quote: string | null | undefined,
+  cells: readonly string[]
+): boolean {
+  const needle = normalizedCell(quote ?? "")
+  if (needle.length < 8) {
+    return false
+  }
+  return cells.some((cell) => {
+    const haystack = normalizedCell(cell)
+    return haystack !== "" && haystack.includes(needle)
+  })
+}
+
 export function buildCsvTable(
   text: string,
-  match: { file: string; lineStart: number | null; lineEnd: number | null }
+  match: {
+    file: string
+    lineStart: number | null
+    lineEnd: number | null
+    quote?: string | null
+  }
 ): CsvTable {
   const parsed = parseCsv(text)
   if (parsed.length === 0) {
@@ -1049,13 +1092,14 @@ export function buildCsvTable(
   const rows = dataRows.slice(0, MAX_CSV_ROWS).map((cells) => ({
     cells,
     highlight:
-      referenceIndex >= 0 &&
-      referenceMatches(
-        cells[referenceIndex] ?? "",
-        match.file,
-        match.lineStart,
-        match.lineEnd
-      ),
+      (referenceIndex >= 0 &&
+        referenceMatches(
+          cells[referenceIndex] ?? "",
+          match.file,
+          match.lineStart,
+          match.lineEnd
+        )) ||
+      quoteMatchesCells(match.quote, cells),
   }))
   return {
     columns,
@@ -1068,10 +1112,14 @@ export function buildCsvTable(
 export type CheckFormat =
   "csv" | "json" | "markdown" | "text" | "binary" | "url" | "missing"
 
+/** A check reference is either the script itself or an artifact it produced. */
+export type CheckRole = "script" | "output" | "artifact"
+
 export interface CheckEvidence {
   label: string
   raw: string
   resolved: boolean
+  role: CheckRole
   format: CheckFormat
   url: string | null
   size: number | null
@@ -1080,6 +1128,104 @@ export interface CheckEvidence {
   missingAttempts: ResolutionAttempt[]
   csv: CsvTable | null
   text: string | null
+}
+
+const SCRIPT_EXTENSIONS = new Set([
+  ".bash",
+  ".cjs",
+  ".js",
+  ".mjs",
+  ".py",
+  ".r",
+  ".sh",
+  ".ts",
+  ".zsh",
+])
+
+const OUTPUT_EXTENSIONS = new Set([
+  ".csv",
+  ".json",
+  ".log",
+  ".md",
+  ".markdown",
+  ".out",
+  ".tsv",
+  ".txt",
+  ".yaml",
+  ".yml",
+])
+
+function checkRoleFor(fileName: string): CheckRole {
+  const extension = path.extname(fileName).toLowerCase()
+  if (SCRIPT_EXTENSIONS.has(extension)) {
+    return "script"
+  }
+  if (OUTPUT_EXTENSIONS.has(extension)) {
+    return "output"
+  }
+  return "artifact"
+}
+
+function artifactTokens(fileName: string): string[] {
+  return path
+    .parse(fileName)
+    .name.toLowerCase()
+    .replace(/^check[_-]?/, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+}
+
+/**
+ * Pair a check script with the files it wrote to the sibling `out/` directory.
+ * The data does not record the mapping, so this deliberately uses a
+ * conservative stem/token match: exact stems (after stripping `check_`), or a
+ * multi-token output name fully contained in the script name. Ambiguous or
+ * single-word names are left alone rather than guessed.
+ */
+function outputMatchesScript(scriptName: string, outputName: string): boolean {
+  const script = artifactTokens(scriptName)
+  const output = artifactTokens(outputName)
+  if (script.length === 0 || output.length === 0) {
+    return false
+  }
+  if (script.join("_") === output.join("_")) {
+    return true
+  }
+  if (output.length < 2) {
+    return false
+  }
+  const scriptTokens = new Set(script)
+  return output.every((token) => scriptTokens.has(token))
+}
+
+async function discoverCheckOutputs(
+  scriptAbsolutePath: string
+): Promise<string[]> {
+  const outDir = path.join(path.dirname(scriptAbsolutePath), "out")
+  let entries: Dirent[]
+  try {
+    entries = await readdir(outDir, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name))
+  const scriptName = path.basename(scriptAbsolutePath)
+  const matches: string[] = []
+  for (const entry of entries) {
+    if (!entry.isFile() || isIgnoredEntry(entry.name)) {
+      continue
+    }
+    if (
+      !OUTPUT_EXTENSIONS.has(path.extname(entry.name).toLowerCase()) ||
+      isBinaryPath(entry.name)
+    ) {
+      continue
+    }
+    if (outputMatchesScript(scriptName, entry.name)) {
+      matches.push(path.join(outDir, entry.name))
+    }
+  }
+  return matches
 }
 
 function capTextLines(
@@ -1096,7 +1242,12 @@ function capTextLines(
 function formatCheckText(
   text: string,
   extension: string,
-  match: { file: string; lineStart: number | null; lineEnd: number | null }
+  match: {
+    file: string
+    lineStart: number | null
+    lineEnd: number | null
+    quote?: string | null
+  }
 ): {
   format: CheckFormat
   csv: CsvTable | null
@@ -1143,9 +1294,11 @@ async function buildCheckEvidence(
   side: EvidenceSide,
   roots: EvidenceRoots,
   batchId: string,
-  paperId: string
+  paperId: string,
+  role?: CheckRole
 ): Promise<CheckEvidence> {
   const label = path.posix.basename(raw.replace(/\\/g, "/")) || raw
+  const resolvedRole = role ?? checkRoleFor(label)
   const resolved = await resolveEvidence({
     roots: resolveRoots(roots),
     side,
@@ -1158,6 +1311,7 @@ async function buildCheckEvidence(
     label,
     raw,
     resolved: false,
+    role: resolvedRole,
     format: "missing",
     url: null,
     size: null,
@@ -1173,6 +1327,7 @@ async function buildCheckEvidence(
       label,
       raw,
       resolved: false,
+      role: resolvedRole,
       format: "url",
       url: resolved.url,
       size: null,
@@ -1207,6 +1362,7 @@ async function buildCheckEvidence(
       label,
       raw,
       resolved: true,
+      role: resolvedRole,
       format: "binary",
       url,
       size: read.size,
@@ -1225,6 +1381,7 @@ async function buildCheckEvidence(
       file: finding.file,
       lineStart: finding.lineStart,
       lineEnd: finding.lineEnd,
+      quote: finding.quote,
     }
   )
 
@@ -1232,6 +1389,7 @@ async function buildCheckEvidence(
     label,
     raw,
     resolved: true,
+    role: resolvedRole,
     format: formatted.format,
     url,
     size: read.size,
@@ -1273,6 +1431,201 @@ function checkReferences(finding: ReviewFinding): string[] {
     }
   }
   return refs.slice(0, MAX_CHECKS_PER_FINDING)
+}
+
+async function outputsForCheckReference(
+  reference: string,
+  finding: ReviewFinding,
+  side: EvidenceSide,
+  roots: EvidenceRoots,
+  batchId: string,
+  paperId: string
+): Promise<CheckEvidence[]> {
+  const resolved = await resolveEvidence({
+    roots: resolveRoots(roots),
+    side,
+    finding: { file: reference },
+  })
+  if (
+    !resolved.absolutePath ||
+    !SCRIPT_EXTENSIONS.has(path.extname(resolved.absolutePath).toLowerCase())
+  ) {
+    return []
+  }
+  const discovered = await discoverCheckOutputs(resolved.absolutePath)
+  const outputs = await Promise.all(
+    discovered.slice(0, MAX_OUTPUTS_PER_CHECK).map((absolute) => {
+      const relative = toPaperRelative(roots.paperDir, absolute)
+      return relative === null
+        ? null
+        : buildCheckEvidence(
+            relative,
+            finding,
+            side,
+            roots,
+            batchId,
+            paperId,
+            "output"
+          )
+    })
+  )
+  return outputs.filter((output): output is CheckEvidence => output !== null)
+}
+
+function sameCheckPath(left: string, right: string): boolean {
+  const normalize = (value: string) =>
+    value.replace(/\\/g, "/").replace(/^\.\/+/, "")
+  const a = normalize(left)
+  const b = normalize(right)
+  return a === b || a.endsWith(`/${b}`) || b.endsWith(`/${a}`)
+}
+
+/**
+ * Findings occasionally cite an artifact row directly (`file` is an
+ * `_audit_code/out/*.csv` path). That is check evidence, not source code, so
+ * make sure the cited artifact is present in the finding's checks.
+ */
+async function ensureCitedCheck(
+  finding: ReviewFinding,
+  side: EvidenceSide,
+  roots: EvidenceRoots,
+  batchId: string,
+  paperId: string,
+  checks: CheckEvidence[]
+): Promise<CheckEvidence[]> {
+  if (
+    checks.some(
+      (check) =>
+        sameCheckPath(check.raw, finding.file) ||
+        sameCheckPath(check.label, finding.file)
+    )
+  ) {
+    return checks
+  }
+  const cited = await buildCheckEvidence(
+    finding.file,
+    finding,
+    side,
+    roots,
+    batchId,
+    paperId
+  )
+  return [cited, ...checks]
+}
+
+async function buildFindingChecks(
+  finding: ReviewFinding,
+  side: EvidenceSide,
+  roots: EvidenceRoots,
+  batchId: string,
+  paperId: string
+): Promise<CheckEvidence[]> {
+  const groups = await Promise.all(
+    checkReferences(finding).map(async (reference) => {
+      const [check, outputs] = await Promise.all([
+        buildCheckEvidence(reference, finding, side, roots, batchId, paperId),
+        outputsForCheckReference(
+          reference,
+          finding,
+          side,
+          roots,
+          batchId,
+          paperId
+        ),
+      ])
+      return [check, ...outputs]
+    })
+  )
+  const seen = new Set<string>()
+  return groups.flat().filter((check) => {
+    if (seen.has(check.raw)) {
+      return false
+    }
+    seen.add(check.raw)
+    return true
+  })
+}
+
+/**
+ * Comparator `verification.checked` entries mix code anchors, paper text and
+ * output files. Only the output files are artifacts the evidence trail can
+ * render, so strip line suffixes and ignore code/paper/probe paths.
+ */
+function checkedArtifactPath(value: string): string | null {
+  const trimmed = value.trim()
+  if (
+    trimmed === "" ||
+    /^https?:\/\//i.test(trimmed) ||
+    trimmed.startsWith("paper:")
+  ) {
+    return null
+  }
+  const normalized = trimmed.replace(/:\d+(?:-\d+)?$/, "").replace(/\\/g, "/")
+  if (!OUTPUT_EXTENSIONS.has(path.posix.extname(normalized).toLowerCase())) {
+    return null
+  }
+  const basename = path.posix.basename(normalized).toLowerCase()
+  if (
+    basename === "paper.pdf" ||
+    basename === "paper_text.txt" ||
+    basename === "paper.json"
+  ) {
+    return null
+  }
+  if (
+    !normalized.startsWith("out/") &&
+    !normalized.includes("/out/") &&
+    !normalized.includes("_audit_code") &&
+    !normalized.includes("_verifier_code")
+  ) {
+    return null
+  }
+  return normalized
+}
+
+async function buildVerificationArtifacts(
+  item: ReviewItem,
+  roots: EvidenceRoots,
+  batchId: string,
+  paperId: string
+): Promise<CheckEvidence[]> {
+  const checked = item.comparator.verification?.checked ?? []
+  const finding = item.findings.auditowl[0] ?? item.findings.agent[0]
+  if (!finding || checked.length === 0) {
+    return []
+  }
+
+  const paths = [
+    ...new Set(
+      checked.flatMap((value) => {
+        const artifact = checkedArtifactPath(value)
+        return artifact ? [artifact] : []
+      })
+    ),
+  ]
+
+  const artifacts = await Promise.all(
+    paths.map(async (raw) => {
+      for (const side of ["agent", "auditowl"] as const) {
+        const artifact = await buildCheckEvidence(
+          raw,
+          finding,
+          side,
+          roots,
+          batchId,
+          paperId,
+          "output"
+        )
+        if (artifact.resolved) {
+          return artifact
+        }
+      }
+      return null
+    })
+  )
+  return artifacts.filter(
+    (artifact): artifact is CheckEvidence => artifact !== null
+  )
 }
 
 export function parsePaperPages(
@@ -1437,7 +1790,8 @@ async function buildPaperEvidence(
   finding: ReviewFinding,
   roots: EvidenceRoots,
   batchId: string,
-  paperId: string
+  paperId: string,
+  reads: EvidenceReadCache
 ): Promise<PaperEvidence> {
   const pdfRelative = roots.pdfPath
     ? toPaperRelative(roots.paperDir, roots.pdfPath)
@@ -1452,7 +1806,7 @@ async function buildPaperEvidence(
     ? await resolvePaperFilePath(roots.paperDir, roots.batchRoot, textRelative)
     : null
   const textRead = textFile
-    ? await readCapped(textFile.realPath, 8 * 1024 * 1024)
+    ? await readCappedShared(reads, textFile.realPath, 8 * 1024 * 1024)
     : null
   return {
     paperRef: finding.paperRef,
@@ -1535,7 +1889,8 @@ async function buildReportEvidence(
   side: EvidenceSide,
   roots: EvidenceRoots,
   batchId: string,
-  paperId: string
+  paperId: string,
+  reads: EvidenceReadCache
 ): Promise<ReportEvidence> {
   const absolute =
     side === "agent" ? roots.agentReportPath : roots.auditowlReportPath
@@ -1568,7 +1923,7 @@ async function buildReportEvidence(
   if (!resolved) {
     return { ...empty, relativePath: relative }
   }
-  const read = await readCapped(resolved.realPath, 4 * 1024 * 1024)
+  const read = await readCappedShared(reads, resolved.realPath, 4 * 1024 * 1024)
   if (read === null || read.binary) {
     return { ...empty, relativePath: relative }
   }
@@ -1626,6 +1981,14 @@ export interface EvidenceHealth {
   reportsAvailable: number
 }
 
+export interface VerificationEvidence {
+  status: string | null
+  note: string | null
+  checked: string[]
+  /** Resolved output artifacts named by the comparator's checked paths. */
+  artifacts: CheckEvidence[]
+}
+
 export interface EvidenceBundle {
   batchId: string
   paperId: string
@@ -1633,6 +1996,8 @@ export interface EvidenceBundle {
   itemRef: string
   itemTitle: string
   severity: Severity
+  /** Comparator verification shared by the item, including checked paths. */
+  verification: VerificationEvidence | null
   sides: EvidenceSideBundle[]
   health: EvidenceHealth
 }
@@ -1642,18 +2007,26 @@ async function buildFindingEvidence(
   side: EvidenceSide,
   roots: EvidenceRoots,
   batchId: string,
-  paperId: string
+  paperId: string,
+  reads: EvidenceReadCache
 ): Promise<FindingEvidence> {
-  const [code, checks, paper, report] = await Promise.all([
+  const [code, baseChecks, paper, report] = await Promise.all([
     buildCodeEvidence(finding, side, roots, batchId, paperId),
-    Promise.all(
-      checkReferences(finding).map((reference) =>
-        buildCheckEvidence(reference, finding, side, roots, batchId, paperId)
-      )
-    ),
-    buildPaperEvidence(finding, roots, batchId, paperId),
-    buildReportEvidence(finding, side, roots, batchId, paperId),
+    buildFindingChecks(finding, side, roots, batchId, paperId),
+    buildPaperEvidence(finding, roots, batchId, paperId, reads),
+    buildReportEvidence(finding, side, roots, batchId, paperId, reads),
   ])
+  const checks =
+    code.kind === "check"
+      ? await ensureCitedCheck(
+          finding,
+          side,
+          roots,
+          batchId,
+          paperId,
+          baseChecks
+        )
+      : baseChecks
   return {
     id: finding.id,
     idLocal: finding.idLocal,
@@ -1707,13 +2080,14 @@ export async function buildEvidenceBundle(
   const { batchId, paperId, item, roots } = input
   const health = emptyHealth()
   const sides: EvidenceSideBundle[] = []
+  const reads: EvidenceReadCache = new Map()
 
   for (const side of sidesForItem(item.kind)) {
     const findings = item.findings[side]
     const selected = findings.slice(0, MAX_FINDINGS_PER_SIDE)
     const evidence = await Promise.all(
       selected.map((finding) =>
-        buildFindingEvidence(finding, side, roots, batchId, paperId)
+        buildFindingEvidence(finding, side, roots, batchId, paperId, reads)
       )
     )
     for (const finding of evidence) {
@@ -1753,6 +2127,11 @@ export async function buildEvidenceBundle(
     })
   }
 
+  const verification = item.comparator.verification
+  const verificationArtifacts = verification
+    ? await buildVerificationArtifacts(item, roots, batchId, paperId)
+    : []
+
   return {
     batchId,
     paperId,
@@ -1760,6 +2139,14 @@ export async function buildEvidenceBundle(
     itemRef: item.ref,
     itemTitle: item.title,
     severity: item.severity,
+    verification: verification
+      ? {
+          status: verification.status ?? null,
+          note: verification.note ?? null,
+          checked: verification.checked ?? [],
+          artifacts: verificationArtifacts,
+        }
+      : null,
     sides,
     health,
   }

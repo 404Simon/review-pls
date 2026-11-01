@@ -1,11 +1,6 @@
 "use client"
 
-import {
-  AlertTriangle,
-  CheckCircle2,
-  ExternalLink,
-  FileWarning,
-} from "lucide-react"
+import { ExternalLink, FileWarning, ScrollText, Terminal } from "lucide-react"
 import { useId, useState } from "react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -18,7 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Table,
   TableBody,
@@ -28,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { MarkdownContent } from "@/components/review/markdown-content"
-import type { CheckEvidence } from "@/lib/review/evidence"
+import type { CheckEvidence, CheckRole } from "@/lib/review/evidence"
 import { formatBytes } from "@/lib/review/format"
 import { cn } from "@/lib/utils"
 
@@ -60,38 +54,39 @@ function CsvView({ check }: { check: CheckEvidence }) {
           placeholder="Filter displayed rows by any cell…"
         />
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            {columns.map((column, index) => (
-              <TableHead key={`${column}-${index}`}>{column}</TableHead>
-            ))}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row, rowIndex) => (
-            <TableRow
-              key={rowIndex}
-              className={cn(row.highlight && "bg-accent/60")}
-            >
-              {columns.map((_, columnIndex) => (
-                <TableCell
-                  key={columnIndex}
-                  className="max-w-[32rem] truncate font-mono text-xs"
-                  title={row.cells[columnIndex]}
-                >
-                  {row.cells[columnIndex] ?? ""}
-                </TableCell>
+      <div className="max-h-80 overflow-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {columns.map((column, index) => (
+                <TableHead key={`${column}-${index}`}>{column}</TableHead>
               ))}
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row, rowIndex) => (
+              <TableRow
+                key={rowIndex}
+                className={cn(row.highlight && "bg-accent/60")}
+              >
+                {columns.map((_, columnIndex) => (
+                  <TableCell
+                    key={columnIndex}
+                    className="max-w-[32rem] truncate font-mono text-xs"
+                    title={row.cells[columnIndex]}
+                  >
+                    {row.cells[columnIndex] ?? ""}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       <p className="text-xs text-muted-foreground">
         {rows.length} of {totalRows} row{totalRows === 1 ? "" : "s"}
         {truncated ? " (only the first 100 rows are loaded)" : ""}
-        {needle === "" ? "" : ` matching “${filter.trim()}”`}. The filter
-        applies to the displayed rows; matching reference rows are highlighted.
+        {needle === "" ? "" : ` matching “${filter.trim()}”`}.
       </p>
     </div>
   )
@@ -171,7 +166,7 @@ function CheckBody({ check }: { check: CheckEvidence }) {
 
   if (check.text !== null) {
     return (
-      <pre className="max-h-[24rem] overflow-auto rounded-md border bg-muted/20 p-3 font-mono text-xs whitespace-pre-wrap">
+      <pre className="max-h-60 overflow-auto rounded-md border bg-muted/20 p-3 font-mono text-xs whitespace-pre-wrap">
         {check.text}
       </pre>
     )
@@ -180,81 +175,100 @@ function CheckBody({ check }: { check: CheckEvidence }) {
   return null
 }
 
+const ROLE_LABELS: Record<CheckRole, string> = {
+  output: "output",
+  script: "script",
+  artifact: "artifact",
+}
+
+const ROLE_RANK: Record<CheckRole, number> = {
+  output: 0,
+  artifact: 1,
+  script: 2,
+}
+
+function CheckCard({ check }: { check: CheckEvidence }) {
+  const isScript = check.role === "script"
+  const showBodyImmediately = !isScript || !check.resolved
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center gap-2 font-mono text-sm break-all">
+          {isScript ? (
+            <Terminal data-icon="inline-start" />
+          ) : (
+            <ScrollText data-icon="inline-start" />
+          )}
+          {check.label}
+          <Badge variant="outline">{ROLE_LABELS[check.role]}</Badge>
+          {check.format === "url" ? (
+            <Badge variant="outline">external URL</Badge>
+          ) : isScript ? null : (
+            <Badge variant={check.resolved ? "secondary" : "destructive"}>
+              {check.resolved ? "resolved" : "missing"}
+            </Badge>
+          )}
+          {check.truncated ? <Badge variant="outline">truncated</Badge> : null}
+        </CardTitle>
+        <CardDescription className="flex flex-wrap items-center gap-2">
+          <span className="font-mono break-all">{check.raw}</span>
+          <span>{formatBytes(check.size)}</span>
+          {check.note ? <span>· {check.note}</span> : null}
+        </CardDescription>
+      </CardHeader>
+
+      {showBodyImmediately ? (
+        <CardContent className="flex flex-col gap-3">
+          <CheckBody check={check} />
+          {check.url && check.format !== "url" ? (
+            <a
+              href={check.url}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="w-fit text-xs underline underline-offset-4"
+            >
+              Open full artifact
+            </a>
+          ) : null}
+        </CardContent>
+      ) : (
+        <details className="border-t">
+          <summary className="cursor-pointer px-4 py-2 text-xs font-medium text-muted-foreground select-none">
+            Show script source
+          </summary>
+          <div className="px-4 pb-4">
+            <CheckBody check={check} />
+          </div>
+        </details>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * Check evidence is shown output-first: the artifact that supports the claim is
+ * expanded, while the script itself stays available but collapsed.
+ */
 export function CheckView({ checks }: { checks: CheckEvidence[] }) {
   if (checks.length === 0) {
     return (
-      <Alert>
-        <AlertTriangle />
-        <AlertTitle>No check artifacts</AlertTitle>
-        <AlertDescription>
-          This finding does not name a check script or a checked path.
-        </AlertDescription>
-      </Alert>
+      <p className="text-sm text-muted-foreground">
+        No check script or output is recorded for this finding.
+      </p>
     )
   }
 
+  const ordered = [...checks].sort(
+    (a, b) =>
+      ROLE_RANK[a.role] - ROLE_RANK[b.role] || a.label.localeCompare(b.label)
+  )
+
   return (
-    <Tabs defaultValue="check-0">
-      <TabsList variant="line" className="w-full flex-wrap justify-start">
-        {checks.map((check, index) => (
-          <TabsTrigger
-            key={`${check.raw}-${index}`}
-            value={`check-${index}`}
-            className="flex-none"
-          >
-            {check.format === "url" ? (
-              <ExternalLink className="text-muted-foreground" />
-            ) : check.resolved ? (
-              <CheckCircle2 className="text-muted-foreground" />
-            ) : (
-              <FileWarning className="text-destructive" />
-            )}
-            <span className="max-w-48 truncate">{check.label}</span>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {checks.map((check, index) => (
-        <TabsContent
-          key={`${check.raw}-${index}`}
-          value={`check-${index}`}
-          className="pt-3"
-        >
-          <Card size="sm">
-            <CardHeader>
-              <CardTitle className="flex flex-wrap items-center gap-2 font-mono text-sm break-all">
-                {check.raw}
-                {check.format === "url" ? (
-                  <Badge variant="outline">external URL</Badge>
-                ) : (
-                  <Badge variant={check.resolved ? "secondary" : "destructive"}>
-                    {check.resolved ? "resolved" : "missing"}
-                  </Badge>
-                )}
-                {check.truncated ? (
-                  <Badge variant="outline">truncated</Badge>
-                ) : null}
-              </CardTitle>
-              <CardDescription>
-                {formatBytes(check.size)}
-                {check.note ? ` · ${check.note}` : ""}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <CheckBody check={check} />
-              {check.url && check.format !== "url" ? (
-                <a
-                  href={check.url}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="text-xs underline underline-offset-4"
-                >
-                  Open full artifact
-                </a>
-              ) : null}
-            </CardContent>
-          </Card>
-        </TabsContent>
+    <div className="flex flex-col gap-3">
+      {ordered.map((check, index) => (
+        <CheckCard key={`${check.raw}-${index}`} check={check} />
       ))}
-    </Tabs>
+    </div>
   )
 }

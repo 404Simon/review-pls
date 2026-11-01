@@ -275,7 +275,7 @@ test("keyboard help opens and j moves to the next item", async ({
   const url = item("cluster:1002:M01")
   expect((await page.request.get(url)).status()).toBe(200)
   await page.goto(url)
-  await expect(page.getByText("Comparator proposal").first()).toBeVisible()
+  await expect(page.getByText("Automated comparator").first()).toBeVisible()
   // Let the client shortcut listener hydrate before pressing a shortcut.
   await page.waitForTimeout(750)
 
@@ -343,7 +343,7 @@ test("tab-scoped j navigation stays inside the Matches tab", async ({
   const url = `${item("cluster:1001:M01")}?from=paper&tab=matches`
   expect((await page.request.get(url)).status()).toBe(200)
   await page.goto(url)
-  await expect(page.getByText("Comparator proposal").first()).toBeVisible()
+  await expect(page.getByText("Automated comparator").first()).toBeVisible()
   await page.waitForTimeout(750)
 
   await page.keyboard.press("j")

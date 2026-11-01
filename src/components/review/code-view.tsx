@@ -7,12 +7,13 @@ import {
   ExternalLink,
   FileSearch,
   FolderTree,
-  GitBranch,
   Link2,
+  Quote,
   Search,
 } from "lucide-react"
 import { useState } from "react"
 
+import { GithubIcon } from "@/components/review/github-icon"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -26,35 +27,6 @@ import {
 import type { CodeEvidence } from "@/lib/review/evidence"
 import { formatLineRange } from "@/lib/review/format"
 import { cn } from "@/lib/utils"
-
-const QUOTE_STYLES = {
-  exact: "bg-secondary text-secondary-foreground ring-1 ring-border",
-  fuzzy: "bg-muted text-muted-foreground ring-1 ring-border",
-  missing: "bg-destructive/10 text-destructive ring-1 ring-destructive/20",
-  not_checkable: "bg-muted text-muted-foreground ring-1 ring-border",
-} as const
-
-const QUOTE_LABELS = {
-  exact: "quote exact",
-  fuzzy: "quote fuzzy",
-  missing: "quote missing",
-  not_checkable: "quote not checkable",
-} as const
-
-export function QuoteMatchBadge({
-  quoteMatch,
-}: {
-  quoteMatch: CodeEvidence["quoteMatch"]
-}) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn("border-transparent", QUOTE_STYLES[quoteMatch])}
-    >
-      {QUOTE_LABELS[quoteMatch]}
-    </Badge>
-  )
-}
 
 function CopyPathButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false)
@@ -87,6 +59,47 @@ function CopyPathButton({ value }: { value: string }) {
   )
 }
 
+/**
+ * The raw quote is the fallback evidence: it is shown when the cited file
+ * could not be resolved, or when the quote does not line up with the cited
+ * lines. A quote that matches the file exactly is already visible in the
+ * preview, so rendering it again would duplicate the same code.
+ */
+function CitedQuote({
+  quote,
+  collapsible = false,
+}: {
+  quote: string
+  collapsible?: boolean
+}) {
+  if (!collapsible) {
+    return (
+      <figure className="flex flex-col gap-1">
+        <figcaption className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <Quote data-icon="inline-start" />
+          Cited quote
+        </figcaption>
+        <blockquote className="rounded-md border-l-2 border-border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap">
+          {quote}
+        </blockquote>
+      </figure>
+    )
+  }
+
+  const lines = quote.replace(/\r\n?/g, "\n").split("\n").length
+  return (
+    <details className="rounded-md border bg-muted/20">
+      <summary className="flex cursor-pointer items-center gap-1 px-3 py-2 text-xs font-medium text-muted-foreground select-none">
+        <Quote data-icon="inline-start" />
+        Cited quote · {lines} line{lines === 1 ? "" : "s"}
+      </summary>
+      <blockquote className="border-t p-3 font-mono text-xs whitespace-pre-wrap">
+        {quote}
+      </blockquote>
+    </details>
+  )
+}
+
 function MissingCode({ evidence }: { evidence: CodeEvidence }) {
   return (
     <Card size="sm" className="gap-3">
@@ -106,6 +119,7 @@ function MissingCode({ evidence }: { evidence: CodeEvidence }) {
         <p className="text-sm text-muted-foreground">
           {evidence.note ?? "The cited path was not found in the batch."}
         </p>
+        {evidence.quote ? <CitedQuote quote={evidence.quote} /> : null}
         {evidence.closestMatches.length > 0 ? (
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">Closest matches</p>
@@ -160,7 +174,7 @@ function MissingCode({ evidence }: { evidence: CodeEvidence }) {
               rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
-              <GitBranch data-icon="inline-start" />
+              <GithubIcon data-icon="inline-start" />
               Browse repository
               {evidence.githubCommit
                 ? ` at ${evidence.githubCommit.slice(0, 7)}`
@@ -212,7 +226,8 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
             {evidence.raw}
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
+          {evidence.quote ? <CitedQuote quote={evidence.quote} /> : null}
           <a
             href={evidence.externalUrl ?? evidence.raw}
             target="_blank"
@@ -227,6 +242,10 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
     )
   }
 
+  const showCitedQuote =
+    evidence.quote !== null &&
+    (evidence.preview === null || evidence.quoteMatch !== "exact")
+
   return (
     <Card size="sm" className="gap-3">
       <CardHeader>
@@ -234,7 +253,6 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
           <CardTitle className="font-mono text-sm break-all">
             {evidence.relativePath ?? evidence.raw}
           </CardTitle>
-          <QuoteMatchBadge quoteMatch={evidence.quoteMatch} />
           {evidence.preview?.truncated ? (
             <Badge variant="outline">truncated</Badge>
           ) : null}
@@ -257,14 +275,12 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {evidence.quote ? (
-          <blockquote className="rounded-md border-l-2 border-border bg-muted/40 p-3 font-mono text-xs whitespace-pre-wrap">
-            {evidence.quote}
-          </blockquote>
-        ) : null}
-
         {evidence.note ? (
           <p className="text-xs text-muted-foreground">{evidence.note}</p>
+        ) : null}
+
+        {showCitedQuote && evidence.quote ? (
+          <CitedQuote quote={evidence.quote} collapsible />
         ) : null}
 
         {evidence.preview ? (
@@ -293,7 +309,9 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
             <AlertTriangle />
             <AlertTitle>No inline preview</AlertTitle>
             <AlertDescription>
-              Open the full file to inspect it.
+              {showCitedQuote
+                ? "The cited file could not be shown; the recorded quote above is the evidence."
+                : "Open the full file to inspect it."}
             </AlertDescription>
           </Alert>
         )}
@@ -309,39 +327,6 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          {evidence.fileUrl ? (
-            <a
-              href={evidence.fileUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={buttonVariants({ variant: "outline", size: "xs" })}
-            >
-              <FileSearch data-icon="inline-start" />
-              Open full file
-            </a>
-          ) : null}
-          {evidence.treeUrl ? (
-            <a
-              href={evidence.treeUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={buttonVariants({ variant: "outline", size: "xs" })}
-            >
-              <FolderTree data-icon="inline-start" />
-              Open repo tree
-            </a>
-          ) : null}
-          {evidence.searchUrl ? (
-            <a
-              href={evidence.searchUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={buttonVariants({ variant: "outline", size: "xs" })}
-            >
-              <Search data-icon="inline-start" />
-              Search repo
-            </a>
-          ) : null}
           {evidence.githubFileUrl ? (
             <a
               href={evidence.githubFileUrl}
@@ -349,21 +334,35 @@ export function CodeView({ evidence }: { evidence: CodeEvidence }) {
               rel="noreferrer noopener"
               className={buttonVariants({ variant: "outline", size: "xs" })}
             >
-              <GitBranch data-icon="inline-start" />
+              <GithubIcon data-icon="inline-start" />
               View on GitHub
             </a>
-          ) : null}
-          {evidence.githubRepoUrl ? (
-            <a
-              href={evidence.githubRepoUrl}
-              target="_blank"
-              rel="noreferrer noopener"
-              className={buttonVariants({ variant: "outline", size: "xs" })}
-            >
-              <GitBranch data-icon="inline-start" />
-              Browse repo at commit
-            </a>
-          ) : null}
+          ) : (
+            <>
+              {evidence.fileUrl ? (
+                <a
+                  href={evidence.fileUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={buttonVariants({ variant: "outline", size: "xs" })}
+                >
+                  <FileSearch data-icon="inline-start" />
+                  Open file
+                </a>
+              ) : null}
+              {evidence.searchUrl ? (
+                <a
+                  href={evidence.searchUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className={buttonVariants({ variant: "outline", size: "xs" })}
+                >
+                  <Search data-icon="inline-start" />
+                  Search repo
+                </a>
+              ) : null}
+            </>
+          )}
           <CopyPathButton value={evidence.relativePath ?? evidence.raw} />
         </div>
       </CardContent>
