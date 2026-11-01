@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createAuthMiddleware, APIError } from "better-auth/api"
-import { db } from "@/db"
+import { db, schema } from "@/db"
 import { isRegistrationOpen, registrationGate } from "@/lib/registration"
 
 const profileFieldLimits = {
@@ -43,6 +43,9 @@ function validateProfileUpdate(body: unknown) {
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "sqlite",
+    // Passed explicitly so adapter setup does not read `db._` at module load,
+    // which would open the database during `next build` page-data collection.
+    schema,
   }),
 
   emailAndPassword: {

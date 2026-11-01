@@ -215,4 +215,5 @@ Security rules:
 - `auth-schema.ts` is generated. Regenerate it; do not patch it by hand.
 - Drizzle Kit loads `.env` automatically, but tests pass `DATABASE_URL` explicitly.
 - `local.db*`, `.playwright/`, `.next-e2e/`, `test-results/`, and reports are ignored; do not commit them.
+- `src/db/index.ts` opens SQLite lazily (the exported `db` is a proxy). Never open the database at module import time: `next build` imports route modules in parallel workers, and eager `new Database(...)` + `PRAGMA journal_mode = WAL` across those workers fails the build with `SQLITE_BUSY`. Pass `schema` to `drizzleAdapter` so auth setup does not read `db._` during the build either.
 - The `AGENTS.md` block above is maintained by `next dev`; commit it with your changes rather than deleting it.
