@@ -220,28 +220,6 @@ test("autosaved draft survives a reload", async ({ page, request }) => {
   await expect(page.getByText("Reserved by you")).toBeVisible()
 })
 
-test("queue reserve reserves an item and refreshes the row", async ({
-  page,
-  request,
-}) => {
-  await signedInPage(page, request, "queue")
-  const url = "/batches/review-fixture/queue"
-  expect((await page.request.get(url)).status()).toBe(200)
-  await page.goto(url)
-
-  const row = page.getByRole("row", {
-    name: /Random seed is reset in the training loop/,
-  })
-  await expect(row).toBeVisible()
-  await row
-    .getByRole("button", {
-      name: "Reserve Random seed is reset in the training loop",
-    })
-    .click()
-  await expect(page.getByText(/Reserved “Random seed/)).toBeVisible()
-  await expect(row.getByText("Yours")).toBeVisible()
-})
-
 test("a second reviewer gets a clear claim conflict", async ({ browser }) => {
   const first = await newSignedInContext(browser, "conflict-a")
   const second = await newSignedInContext(browser, "conflict-b")

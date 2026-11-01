@@ -189,11 +189,11 @@ test("a shell navigation link also flushes the pending draft", async ({
   await openDecisionForm(page)
 
   await delayDraftSaves(page, 900)
-  const note = "Flushed before leaving via the shell Queue link."
+  const note = "Flushed before leaving via the shell Papers link."
   await page.getByLabel("Reviewer note").fill(note)
   await page.waitForTimeout(150)
-  await page.getByRole("link", { name: "Queue", exact: true }).click()
-  await expect(page).toHaveURL(/\/batches\/review-fixture-b\/queue/)
+  await page.getByRole("link", { name: "Papers", exact: true }).click()
+  await expect(page).toHaveURL(/\/dashboard\?batch=review-fixture-b/)
 
   await page.goto(url)
   await openDecisionForm(page)
@@ -352,14 +352,13 @@ test("an unknown dashboard ?batch= is not replaced by another batch", async ({
   ).toHaveCount(0)
 
   // The header keeps the requested batch instead of falling back to a mounted
-  // one, and the batch-specific Queue link is disabled rather than misleading.
+  // one, and there is no separate batch route that would hide the problem.
   await expect(
     page.getByRole("link", { name: "Papers", exact: true })
   ).toHaveAttribute("href", "/dashboard?batch=does-not-exist")
   await expect(
     page.getByRole("link", { name: "Queue", exact: true })
   ).toHaveCount(0)
-  await expect(page.getByText("Queue", { exact: true })).toBeVisible()
 })
 
 test("the workspace nav is present in the server-rendered first paint", async ({
@@ -367,14 +366,15 @@ test("the workspace nav is present in the server-rendered first paint", async ({
   request,
 }) => {
   await signedInPage(page, request, "ssr-nav")
-  const response = await page.request.get("/batches/review-fixture-b/queue")
+  const response = await page.request.get(
+    "/batches/review-fixture-b/papers/1001"
+  )
   expect(response.status()).toBe(200)
   const body = await response.text()
 
   expect(body).toContain(">Papers</a>")
-  expect(body).toContain(">Queue</a>")
   expect(body).toContain(">Guide</a>")
-  expect(body).toContain("/batches/review-fixture-b/queue")
+  expect(body).toContain("/dashboard?batch=review-fixture-b")
 })
 
 test("unknown batches, papers and items render the not-found boundary without paths", async ({
@@ -383,7 +383,7 @@ test("unknown batches, papers and items render the not-found boundary without pa
 }) => {
   await signedInPage(page, request, "unknown")
   for (const url of [
-    "/batches/does-not-exist/queue",
+    "/batches/does-not-exist/papers/1001",
     "/batches/review-fixture/papers/9999",
     "/batches/review-fixture/items/cluster:1001:missing",
   ]) {
@@ -409,7 +409,7 @@ test("a corrupt mounted batch renders a generic reviewer error", async ({
   request,
 }) => {
   await signedInPage(page, request, "corrupt")
-  const response = await page.request.get("/batches/broken-fixture/queue")
+  const response = await page.request.get("/batches/broken-fixture/papers/1001")
   expect(response.status()).toBe(200)
   const body = await response.text()
   expect(body).toContain("Data contract error")
@@ -426,9 +426,6 @@ test("a corrupt mounted batch renders a generic reviewer error", async ({
   // Header links must keep the requested (corrupt) batch instead of silently
   // targeting a healthy batch.
   await expect(
-    page.getByRole("link", { name: "Queue", exact: true })
-  ).toHaveAttribute("href", "/batches/broken-fixture/queue")
-  await expect(
     page.getByRole("link", { name: "Papers", exact: true })
   ).toHaveAttribute("href", "/dashboard?batch=broken-fixture")
 })
@@ -443,17 +440,14 @@ test("dashboard honours ?batch= in the header, selector and links", async ({
   await expect(page.getByLabel("Select batch")).toContainText(
     "Synthetic evidence fixture B"
   )
-  const queueLink = page.getByRole("link", { name: "Queue", exact: true })
-  await expect(queueLink).toHaveAttribute(
+  const papersLink = page.getByRole("link", { name: "Papers", exact: true })
+  await expect(papersLink).toHaveAttribute(
     "href",
-    "/batches/review-fixture-b/queue"
+    "/dashboard?batch=review-fixture-b"
   )
-  await expect(
-    page.getByRole("link", { name: "Papers", exact: true })
-  ).toHaveAttribute("href", "/dashboard?batch=review-fixture-b")
 
-  await queueLink.click()
-  await expect(page).toHaveURL(/\/batches\/review-fixture-b\/queue/)
+  await papersLink.click()
+  await expect(page).toHaveURL(/\/dashboard\?batch=review-fixture-b/)
 })
 
 test("filters sit above the paper item list at mobile and desktop widths", async ({

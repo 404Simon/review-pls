@@ -157,33 +157,6 @@ describe("matchesReviewFilters", () => {
     ).toBe(false)
   })
 
-  it("hides closed items only when the caller asks for the queue default", () => {
-    const filters = {
-      severity: "all" as const,
-      kind: "all" as const,
-      status: "all" as const,
-      mine: false,
-      search: "",
-    }
-    expect(
-      matchesReviewFilters(item(), state("closed"), filters, currentUser, {
-        hideClosedWhenAll: true,
-      })
-    ).toBe(false)
-    expect(
-      matchesReviewFilters(item(), state("closed"), filters, currentUser)
-    ).toBe(true)
-    expect(
-      matchesReviewFilters(
-        item(),
-        state("closed"),
-        { ...filters, status: "closed" },
-        currentUser,
-        { hideClosedWhenAll: true }
-      )
-    ).toBe(true)
-  })
-
   it("implements only-mine via claim or final decision", () => {
     const filters = {
       severity: "all" as const,

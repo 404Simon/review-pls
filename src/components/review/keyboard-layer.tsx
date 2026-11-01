@@ -7,7 +7,7 @@ import { ShortcutHelp } from "@/components/review/shortcut-help"
 import { isSearchKey, isShortcutSuppressed } from "@/lib/review/shortcuts"
 
 /**
- * Shared `/` and `?` shortcuts for dashboard, queue and paper pages. The item
+ * Shared `/` and `?` shortcuts for dashboard and paper pages. The item
  * page installs its own richer handler, so this layer deliberately stands down
  * there to avoid opening two help dialogs or stealing the item search shortcut.
  */

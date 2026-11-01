@@ -24,7 +24,6 @@ import {
   parseItemTab,
   parseReviewFilters,
   queryFromFilters,
-  queuePath,
   withQuery,
 } from "@/lib/review/filters"
 import { evidenceFileUrl } from "@/lib/review/evidence"
@@ -142,21 +141,15 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
   const rawQuery = await searchParams
   const query = normalizeParams(rawQuery)
   const filters = parseReviewFilters(rawQuery)
-  const fromQueue = query.from === "queue"
 
-  const sourceItems = fromQueue ? view.loaded.items : paper.items
-  const tabKind = fromQueue
-    ? null
-    : kindForTab(parseItemTab(query.tab ?? "all"))
-  const filtered = sourceItems.filter((candidate) => {
+  const tabKind = kindForTab(parseItemTab(query.tab ?? "all"))
+  const filtered = paper.items.filter((candidate) => {
     if (tabKind !== null && candidate.kind !== tabKind) {
       return false
     }
     const state = view.states[candidate.id]
     return state
-      ? matchesReviewFilters(candidate, state, filters, session.user.id, {
-          hideClosedWhenAll: fromQueue,
-        })
+      ? matchesReviewFilters(candidate, state, filters, session.user.id)
       : false
   })
   const currentIndex = filtered.findIndex(
@@ -183,30 +176,16 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
 
   const navParams = {
     ...queryFromFilters(filters),
-    from: fromQueue ? "queue" : "paper",
-    paper: fromQueue ? query.paper : undefined,
-    tab: fromQueue ? undefined : query.tab,
+    tab: query.tab,
   }
   const itemHref = (target: ReviewItem | null): string | null =>
     target ? withQuery(itemPath(batchId, target.id), navParams) : null
 
-  const queueHref = withQuery(queuePath(batchId), {
-    ...queryFromFilters(filters),
-    paper: query.paper,
+  const paperHref = withQuery(paperPath(batchId, parsed.paperId), navParams)
+  const focusSearchHref = withQuery(paperPath(batchId, parsed.paperId), {
+    ...navParams,
+    focus: "search",
   })
-  const paperHref = withQuery(paperPath(batchId, parsed.paperId), {
-    ...queryFromFilters(filters),
-    tab: query.tab,
-  })
-  const focusSearchHref = withQuery(
-    fromQueue ? queuePath(batchId) : paperPath(batchId, parsed.paperId),
-    {
-      ...queryFromFilters(filters),
-      paper: fromQueue ? query.paper : undefined,
-      tab: fromQueue ? undefined : query.tab,
-      focus: "search",
-    }
-  )
 
   const [historyRows, historyEvents, evidence] = await Promise.all([
     getItemDecisionRows(db, batchId, item),
@@ -286,7 +265,7 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
       paperFilesBase={`${paperPath(batchId, parsed.paperId)}/files`}
       repositories={paper.manifest.code}
       focusSearchHref={focusSearchHref}
-      returnHref={fromQueue ? queueHref : paperHref}
+      returnHref={paperHref}
       serverNow={view.now}
       state={
         view.states[item.id] ?? {

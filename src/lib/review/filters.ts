@@ -136,12 +136,7 @@ function matchesSearch(item: ReviewItem, search: string): boolean {
   return haystack.includes(search.toLowerCase())
 }
 
-/**
- * Shared item predicate for the paper list and the global queue.
- *
- * `hideClosedWhenAll` implements the queue default: closed items disappear
- * unless the reviewer explicitly asks for `status=closed`.
- */
+/** Current derived status counts for a set of items. */
 export function countItemStatuses(
   items: readonly { id: string }[],
   states: Record<string, ItemFilterState | undefined>
@@ -165,8 +160,7 @@ export function matchesReviewFilters(
   item: ReviewItem,
   state: ItemFilterState,
   filters: ReviewFilters,
-  currentUserId: string,
-  options: { hideClosedWhenAll?: boolean } = {}
+  currentUserId: string
 ): boolean {
   if (filters.severity !== "all" && item.severity !== filters.severity) {
     return false
@@ -174,11 +168,7 @@ export function matchesReviewFilters(
   if (filters.kind !== "all" && item.kind !== filters.kind) {
     return false
   }
-  if (filters.status === "all") {
-    if (options.hideClosedWhenAll === true && state.status === "closed") {
-      return false
-    }
-  } else if (state.status !== filters.status) {
+  if (filters.status !== "all" && state.status !== filters.status) {
     return false
   }
   if (filters.mine) {
@@ -192,7 +182,7 @@ export function matchesReviewFilters(
   return matchesSearch(item, filters.search)
 }
 
-const FILTER_KEYS = new Set(["severity", "kind", "status", "mine", "paper"])
+const FILTER_KEYS = new Set(["severity", "kind", "status", "mine"])
 
 export function buildQueryString(
   params: Record<string, string | undefined>
@@ -224,10 +214,6 @@ export function itemPath(batchId: string, itemId: string): string {
 
 export function paperPath(batchId: string, paperId: string): string {
   return `/batches/${encodeURIComponent(batchId)}/papers/${encodeURIComponent(paperId)}`
-}
-
-export function queuePath(batchId: string): string {
-  return `/batches/${encodeURIComponent(batchId)}/queue`
 }
 
 export function queryFromFilters(

@@ -683,7 +683,7 @@ export default async function AdminPage() {
             Batch statistics
           </CardTitle>
           <CardDescription>
-            Closed and unsure use the same derived status as the queue.
+            Closed and unsure use the same derived status as the dashboard.
           </CardDescription>
         </CardHeader>
         <CardContent>

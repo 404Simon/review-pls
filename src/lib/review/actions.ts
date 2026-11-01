@@ -63,7 +63,6 @@ const setRegistrationSchema = z.object({
 
 function revalidateItem(key: ItemKey): void {
   revalidatePath("/dashboard")
-  revalidatePath(`/batches/${key.batchId}/queue`)
   revalidatePath(`/batches/${key.batchId}/papers/${key.paperId}`)
   revalidatePath(
     `/batches/${key.batchId}/items/${itemId(

@@ -1,30 +1,35 @@
 import { describe, expect, it } from "vitest"
 
-import { batchSwitchHref } from "@/lib/review/batch-nav"
+import { batchNavItems, batchSwitchHref } from "@/lib/review/batch-nav"
 
 describe("batchSwitchHref", () => {
-  it("switches batch routes to the new batch queue", () => {
-    expect(batchSwitchHref("/batches/first/queue", "second")).toBe(
-      "/batches/second/queue"
+  it("sends every batch switch to the dashboard for that batch", () => {
+    expect(batchSwitchHref("second")).toBe("/dashboard?batch=second")
+    expect(batchSwitchHref("review-fixture-b")).toBe(
+      "/dashboard?batch=review-fixture-b"
     )
-    expect(batchSwitchHref("/batches/first/papers/1001", "second")).toBe(
-      "/batches/second/queue"
-    )
-    expect(
-      batchSwitchHref("/batches/first/items/cluster:1001:M01", "second")
-    ).toBe("/batches/second/queue")
-  })
-
-  it("keeps dashboard routes on the dashboard with a batch query", () => {
-    expect(batchSwitchHref("/dashboard", "second")).toBe(
-      "/dashboard?batch=second"
-    )
-    expect(batchSwitchHref("/guide", "second")).toBe("/dashboard?batch=second")
   })
 
   it("encodes the batch id", () => {
-    expect(batchSwitchHref("/batches/first/queue", "a b")).toBe(
-      "/batches/a%20b/queue"
-    )
+    expect(batchSwitchHref("a b")).toBe("/dashboard?batch=a%20b")
+  })
+})
+
+describe("batchNavItems", () => {
+  it("links the dashboard, guide and optionally admin", () => {
+    expect(batchNavItems(null)).toEqual([
+      { href: "/dashboard", label: "Papers", activePrefixes: ["/dashboard"] },
+      { href: "/guide", label: "Guide", activePrefixes: ["/guide"] },
+    ])
+    expect(batchNavItems("second", { isAdmin: true })).toContainEqual({
+      href: "/admin",
+      label: "Admin",
+      activePrefixes: ["/admin"],
+    })
+  })
+
+  it("keeps the candidate batch on the dashboard link", () => {
+    const papers = batchNavItems("a b")[0]
+    expect(papers).toMatchObject({ href: "/dashboard?batch=a%20b" })
   })
 })

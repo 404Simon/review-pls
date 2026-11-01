@@ -320,7 +320,7 @@ test("only admins see mounted-path details for a corrupt batch", async ({
   const reviewer = await newSignedInContext(browser, "data-error-reviewer")
   const admin = await newSignedInContext(browser, "data-error-admin")
   promoteToAdmin(admin.email)
-  const url = "/batches/broken-fixture/queue"
+  const url = "/batches/broken-fixture/papers/1001"
 
   try {
     const reviewerResponse = await reviewer.page.request.get(url)
@@ -571,14 +571,6 @@ test("an admin freezes a reviewer into read-only mode", async ({ browser }) => {
     ).toBeVisible()
     await expect(
       reviewer.page.getByRole("button", { name: "Reserve" })
-    ).toHaveCount(0)
-
-    await reviewer.page.goto("/batches/review-fixture/queue")
-    await expect(
-      reviewer.page.getByText("Your account is frozen", { exact: true })
-    ).toBeVisible()
-    await expect(
-      reviewer.page.getByRole("button", { name: /^Reserve/ })
     ).toHaveCount(0)
 
     await admin.page.reload()

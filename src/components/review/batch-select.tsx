@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 import {
   Select,
@@ -27,7 +27,6 @@ export function BatchSelect({
   defaultBatchId: string | null
 }) {
   const router = useRouter()
-  const pathname = usePathname()
   const searchParams = useSearchParams()
   const fromQuery = searchParams.get("batch")
   // An unknown ?batch= must not silently present another mounted batch as the
@@ -55,7 +54,7 @@ export function BatchSelect({
         if (typeof value !== "string" || value === "") {
           return
         }
-        router.push(batchSwitchHref(pathname, value))
+        router.push(batchSwitchHref(value))
       }}
     >
       <SelectTrigger

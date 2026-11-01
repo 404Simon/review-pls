@@ -9,7 +9,6 @@ export interface WorkspaceNavItem {
   href: string
   label: string
   activePrefixes: readonly string[]
-  disabled?: boolean
 }
 
 function isActive(pathname: string, prefixes: readonly string[]): boolean {
@@ -37,22 +36,8 @@ export function WorkspaceNav({
           active
             ? "bg-background font-medium text-foreground shadow-sm ring-1 ring-border/60"
             : "text-muted-foreground",
-          item.disabled
-            ? "cursor-not-allowed opacity-50"
-            : "hover:bg-background/60 hover:text-foreground"
+          "hover:bg-background/60 hover:text-foreground"
         )
-        if (item.disabled) {
-          return (
-            <span
-              key={item.label}
-              aria-disabled="true"
-              title="This batch is not mounted"
-              className={className}
-            >
-              {item.label}
-            </span>
-          )
-        }
         return (
           <Link
             key={item.href}

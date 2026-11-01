@@ -54,7 +54,6 @@ export async function AppShell({
     label: batch.error ? `${batch.label} (data error)` : batch.label,
   }))
   const healthy = summary.filter((batch) => batch.error === undefined)
-  const batchIds = summary.map((batch) => batch.batchId)
   const defaultBatchId = (healthy[0] ?? summary[0])?.batchId ?? null
   // Render the nav in the first paint. The client BatchNav then corrects the
   // dashboard links from `?batch=` once search params are available.
@@ -96,7 +95,6 @@ export async function AppShell({
             <Suspense fallback={<WorkspaceNav items={fallbackNav} />}>
               <BatchNav
                 activeBatchId={activeBatchId}
-                batchIds={batchIds}
                 defaultBatchId={defaultBatchId}
                 isAdmin={isAdmin}
               />
