@@ -26,6 +26,7 @@ import {
   withQuery,
 } from "@/lib/review/filters"
 import { db } from "@/db"
+import { isUserFrozen } from "@/lib/review/account-status"
 import {
   isMissingReviewData,
   listBatches,
@@ -63,6 +64,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   const { user } = session
   const role = await getUserRole(user, { db })
+  const frozen = isUserFrozen(db, user.id)
   const firstName = user.name.trim().split(/\s+/)[0] || user.email
   const rawParams = await searchParams
   const params = normalizeParams(rawParams)
@@ -147,6 +149,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           batchId={activeBatch.batchId}
           userId={user.id}
           isAdmin={role === "admin"}
+          frozen={frozen}
           filters={filters}
           params={params}
         />
@@ -159,12 +162,14 @@ async function DashboardBatch({
   batchId,
   userId,
   isAdmin,
+  frozen,
   filters,
   params,
 }: {
   batchId: string
   userId: string
   isAdmin: boolean
+  frozen: boolean
   filters: ReturnType<typeof parseReviewFilters>
   params: Record<string, string>
 }) {
@@ -305,10 +310,17 @@ async function DashboardBatch({
             <CardAction>
               <Link
                 href={withQuery(itemPath(batchId, resumeItem.id), preserved)}
-                className={buttonVariants({ size: "sm" })}
+                className={buttonVariants({
+                  size: "sm",
+                  variant: frozen ? "outline" : "default",
+                })}
               >
                 <PlayCircle data-icon="inline-start" />
-                {claimed[0] ? "Resume reserved item" : "Start next item"}
+                {frozen
+                  ? "Browse an item"
+                  : claimed[0]
+                    ? "Resume reserved item"
+                    : "Start next item"}
               </Link>
             </CardAction>
           ) : null}

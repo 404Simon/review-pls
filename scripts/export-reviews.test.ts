@@ -26,6 +26,7 @@ import {
   exportFileName,
   reviewDatasetExportSchema,
 } from "@/lib/review/export"
+import { buildExportDocument } from "@/lib/review/export-data"
 
 const ROOT = path.join(process.cwd(), "e2e", "fixtures", "review-data")
 const TSX = path.join(process.cwd(), "node_modules", ".bin", "tsx")
@@ -203,6 +204,8 @@ describe("review:export CLI", () => {
       expect(decisions.data.decisions[0]?.reviewer).toEqual({
         id: "u1",
         name: "Export Tester",
+        title: "none",
+        association: "none",
       })
       expect(decisions.data.unsure[0]?.note).toBe("Durable unsure note")
       expect(
@@ -502,6 +505,52 @@ describe("review:export CLI", () => {
         )
       )
       expect(dataset.success).toBe(true)
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
+  })
+
+  it("writes exactly the bytes the download route builds", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "review-export-"))
+    const databasePath = path.join(directory, "export.db")
+    const out = path.join(directory, "out")
+    try {
+      prepareDatabase(databasePath)
+      const result = runCli([
+        "--batch",
+        "review-fixture",
+        "--type",
+        "both",
+        "--root",
+        ROOT,
+        "--database",
+        databasePath,
+        "--out",
+        out,
+        "--now",
+        String(NOW),
+      ])
+      expect(result.status, result.stderr).toBe(0)
+
+      const sqlite = new Database(databasePath, { readonly: true })
+      try {
+        const db: AppDatabase = drizzle(sqlite, { schema })
+        for (const type of ["dataset", "decisions"] as const) {
+          const document = await buildExportDocument(
+            db,
+            "review-fixture",
+            type,
+            { root: ROOT, now: NOW }
+          )
+          const written = readFileSync(
+            path.join(out, "review-fixture", document.fileName),
+            "utf8"
+          )
+          expect(written).toBe(document.content)
+        }
+      } finally {
+        sqlite.close()
+      }
     } finally {
       rmSync(directory, { recursive: true, force: true })
     }

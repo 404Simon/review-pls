@@ -3,6 +3,11 @@ import { eq } from "drizzle-orm"
 import type { AppDatabase } from "@/db"
 import { user } from "@/db/auth-schema"
 import { reviewerRole } from "@/db/review-schema"
+import {
+  getAccountFreeze,
+  listAccountFreezes,
+  unfreezeAccount,
+} from "@/lib/review/account-status"
 
 export type UserRole = "reviewer" | "admin"
 
@@ -29,9 +34,11 @@ export class AuthorizationError extends Error {
 }
 
 /**
- * `ADMIN_EMAILS` is a comma-separated bootstrap allowlist used by
- * `bootstrapAdminRoles`, never by runtime authorization. Comparison is trimmed
- * and case-insensitive; empty entries are ignored.
+ * `ADMIN_EMAILS` is a comma-separated allowlist of accounts that should be
+ * admin: `promoteAllowlistedAdmins` writes those roles on server start and
+ * `bootstrapAdminRoles` backs the manual sync command. It is never consulted
+ * during request authorization, which reads `reviewer_role` only. Comparison
+ * is trimmed and case-insensitive; empty entries are ignored.
  */
 export function parseAdminEmails(
   value: string | null | undefined
@@ -77,7 +84,7 @@ export interface AuthorizedUser {
   role: UserRole
 }
 
-/** Any authenticated user may review. */
+/** Any authenticated user may review unless an admin froze the account. */
 export async function requireReviewer(
   userRecord: RoleUser | null | undefined,
   options?: RoleOptions
@@ -88,9 +95,16 @@ export async function requireReviewer(
       "You must be signed in to review."
     )
   }
+  const db = await resolveDb(options?.db)
+  if (getAccountFreeze(db, userRecord.id)) {
+    throw new AuthorizationError(
+      "FORBIDDEN",
+      "Your account is frozen. You can browse reviews but cannot claim items or change decisions."
+    )
+  }
   return {
     user: userRecord,
-    role: await getUserRole(userRecord, options),
+    role: await getUserRole(userRecord, { db }),
   }
 }
 
@@ -108,7 +122,7 @@ export async function requireAdmin(
   return authorized
 }
 
-type RoleWriter = Pick<AppDatabase, "insert">
+type RoleWriter = Pick<AppDatabase, "insert" | "delete">
 
 export type RoleTransaction = Parameters<
   Parameters<AppDatabase["transaction"]>[0]
@@ -124,6 +138,11 @@ function writeUserRole(
     .values({ userId, role, createdAt: now })
     .onConflictDoUpdate({ target: reviewerRole.userId, set: { role } })
     .run()
+  // Admins are never frozen: a frozen reviewer promoted to admin gets full
+  // access again, and the console cannot lock itself out.
+  if (role === "admin") {
+    unfreezeAccount(db, userId)
+  }
 }
 
 /**
@@ -155,7 +174,13 @@ export interface UserRoleRow {
   email: string
   emailVerified: boolean
   role: UserRole
+  image: string | null
+  association: string | null
+  title: string | null
+  /** Set while an admin has frozen the account; reviewers only. */
+  frozenAt: number | null
   createdAt: number
+  updatedAt: number
 }
 
 /**
@@ -170,13 +195,18 @@ export function listUserRoles(db: AppDatabase): UserRoleRow[] {
       .all()
       .map((row) => [row.userId, row.role])
   )
+  const freezes = listAccountFreezes(db)
   return db
     .select({
       id: user.id,
       name: user.name,
       email: user.email,
       emailVerified: user.emailVerified,
+      image: user.image,
+      association: user.association,
+      title: user.title,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     })
     .from(user)
     .all()
@@ -186,7 +216,12 @@ export function listUserRoles(db: AppDatabase): UserRoleRow[] {
       email: row.email,
       emailVerified: row.emailVerified,
       role: roles.get(row.id) ?? "reviewer",
+      image: row.image,
+      association: row.association,
+      title: row.title,
+      frozenAt: freezes.get(row.id)?.frozenAt ?? null,
       createdAt: row.createdAt.getTime(),
+      updatedAt: row.updatedAt.getTime(),
     }))
     .sort((a, b) => a.email.localeCompare(b.email) || a.id.localeCompare(b.id))
 }
@@ -239,30 +274,21 @@ function keyOfCandidate(row: { email: string; id: string }): string {
   return row.email.trim().toLowerCase()
 }
 
-/**
- * List registered users that match the `ADMIN_EMAILS` bootstrap allowlist and,
- * only when an operator explicitly confirms a user id, promote that one user.
- *
- * `ADMIN_EMAILS` alone never grants admin and the sync never promotes a user
- * automatically. That is deliberate: the invite code is shared, so an attacker
- * could pre-register an allowlisted address. An operator must inspect the
- * candidates and confirm the account id of the real admin after that person
- * has registered.
- *
- * Missing configured emails are reported and never created. Promotion runs in
- * one transaction so a failure cannot leave a partial sync behind.
- */
-export async function bootstrapAdminRoles(
+interface CandidateCollection {
+  candidates: AdminCandidate[]
+  missing: string[]
+}
+
+/** Match registered accounts against `ADMIN_EMAILS`. Writes nothing. */
+function collectAdminCandidates(
   db: AppDatabase,
-  adminEmails: string | null | undefined,
-  options: BootstrapAdminOptions = {}
-): Promise<AdminRoleSyncResult> {
-  const configured = [...parseAdminEmails(adminEmails)]
-  if (configured.length === 0) {
-    return { candidates: [], promoted: [], missing: [] }
+  adminEmails: string | null | undefined
+): CandidateCollection {
+  const configuredSet = parseAdminEmails(adminEmails)
+  if (configuredSet.size === 0) {
+    return { candidates: [], missing: [] }
   }
 
-  const configuredSet = new Set(configured)
   const users = db
     .select({
       id: user.id,
@@ -301,12 +327,80 @@ export async function bootstrapAdminRoles(
     (a, b) => a.email.localeCompare(b.email) || a.userId.localeCompare(b.userId)
   )
 
-  const missing = configured.filter((email) => !matchedEmails.has(email))
+  return {
+    candidates,
+    missing: [...configuredSet].filter((email) => !matchedEmails.has(email)),
+  }
+}
+
+export interface AdminPromotionResult {
+  /** Existing accounts that were newly promoted to admin by this run. */
+  promoted: PromotedAdmin[]
+  /** Configured emails that do not belong to any registered user yet. */
+  missing: string[]
+}
+
+/**
+ * Promote every registered account whose email is listed in `ADMIN_EMAILS`.
+ *
+ * Runs on server start (`src/instrumentation.ts`) so the admin set follows the
+ * deployment's environment. This is still a row write, never a request-time
+ * grant: authorization keeps reading `reviewer_role` only.
+ *
+ * Promotion only. Roles granted later through `/admin` are left alone, so a
+ * typo or a temporarily empty allowlist can never lock a deployment out of its
+ * admin console, and removing an email does not silently demote anyone.
+ *
+ * Accounts that have not registered yet are reported as `missing`; the caller
+ * logs them and keeps serving, and the next start picks them up.
+ */
+export function promoteAllowlistedAdmins(
+  db: AppDatabase,
+  adminEmails: string | null | undefined,
+  options: { now?: number } = {}
+): AdminPromotionResult {
+  const { candidates, missing } = collectAdminCandidates(db, adminEmails)
+  const now = options.now ?? Date.now()
+
+  const promoted = db.transaction((tx) => {
+    const changed: PromotedAdmin[] = []
+    for (const candidate of candidates) {
+      if (candidate.alreadyAdmin) {
+        continue
+      }
+      writeUserRole(tx, candidate.userId, "admin", now)
+      changed.push({ userId: candidate.userId, email: candidate.email })
+    }
+    return changed
+  })
+
+  return { promoted, missing }
+}
+
+/**
+ * List registered users that match the `ADMIN_EMAILS` allowlist and, only when
+ * an operator explicitly confirms a user id, promote that one user.
+ *
+ * This is the manual path used by `pnpm review:admin:sync`. The server also
+ * calls `promoteAllowlistedAdmins` on start; the explicit confirmation here
+ * still exists so an operator can promote a single account without a restart.
+ *
+ * Missing configured emails are reported and never created. Promotion runs in
+ * one transaction so a failure cannot leave a partial sync behind.
+ */
+export async function bootstrapAdminRoles(
+  db: AppDatabase,
+  adminEmails: string | null | undefined,
+  options: BootstrapAdminOptions = {}
+): Promise<AdminRoleSyncResult> {
+  const { candidates, missing } = collectAdminCandidates(db, adminEmails)
 
   const { confirmUserId } = options
   if (confirmUserId === undefined) {
     return { candidates, promoted: [], missing }
   }
+
+  const configuredSet = parseAdminEmails(adminEmails)
 
   const now = options.now ?? Date.now()
   const promoted = db.transaction((tx) => {

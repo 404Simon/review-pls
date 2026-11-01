@@ -2,12 +2,14 @@ import { eq } from "drizzle-orm"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 
 import { reviewerRole } from "@/db/review-schema"
+import { freezeAccount } from "@/lib/review/account-status"
 import {
   AdminBootstrapError,
   AuthorizationError,
   bootstrapAdminRoles,
   getUserRole,
   parseAdminEmails,
+  promoteAllowlistedAdmins,
   requireAdmin,
   requireReviewer,
   setUserRole,
@@ -197,6 +199,97 @@ describe("bootstrapAdminRoles", () => {
   })
 })
 
+describe("promoteAllowlistedAdmins", () => {
+  it("promotes every registered allowlisted account and reports missing ones", () => {
+    const second = testDb.createUser("u2", "Ops@Example.org")
+    testDb.createUser("u3", "other@example.org")
+
+    const result = promoteAllowlistedAdmins(
+      testDb.db,
+      " person@example.org, ops@example.org, missing@example.org ",
+      { now: 100 }
+    )
+
+    expect(result.promoted.map((user) => user.userId).sort()).toEqual(
+      [userId, second].sort()
+    )
+    expect(result.missing).toEqual(["missing@example.org"])
+    expect(
+      testDb.db
+        .select()
+        .from(reviewerRole)
+        .all()
+        .map((row) => row.userId)
+        .sort()
+    ).toEqual([userId, second].sort())
+  })
+
+  it("is idempotent and keeps created_at", () => {
+    const first = promoteAllowlistedAdmins(testDb.db, "person@example.org", {
+      now: 100,
+    })
+    expect(first.promoted).toEqual([{ userId, email: "Person@Example.org" }])
+
+    const second = promoteAllowlistedAdmins(testDb.db, "person@example.org", {
+      now: 200,
+    })
+    expect(second.promoted).toEqual([])
+
+    const row = testDb.db
+      .select()
+      .from(reviewerRole)
+      .where(eq(reviewerRole.userId, userId))
+      .get()
+    expect(row).toEqual({ userId, role: "admin", createdAt: 100 })
+  })
+
+  it("never demotes admins that are not allowlisted", async () => {
+    const other = testDb.createUser("u2", "other@example.org")
+    await setUserRole(other, "admin", { db: testDb.db, now: 1 })
+
+    const result = promoteAllowlistedAdmins(testDb.db, "person@example.org", {
+      now: 2,
+    })
+
+    expect(result.promoted).toEqual([{ userId, email: "Person@Example.org" }])
+    await expect(getUserRole({ id: other }, { db: testDb.db })).resolves.toBe(
+      "admin"
+    )
+  })
+
+  it("is a no-op without a configured allowlist", async () => {
+    expect(promoteAllowlistedAdmins(testDb.db, undefined)).toEqual({
+      promoted: [],
+      missing: [],
+    })
+    expect(promoteAllowlistedAdmins(testDb.db, " , ")).toEqual({
+      promoted: [],
+      missing: [],
+    })
+    await expect(getUserRole({ id: userId }, { db: testDb.db })).resolves.toBe(
+      "reviewer"
+    )
+  })
+
+  it("rolls back every promotion when one write fails", () => {
+    testDb.createUser("u2", "ops@example.org")
+    testDb.db.run(
+      `CREATE TRIGGER reject_admin_insert
+       BEFORE INSERT ON reviewer_role
+       WHEN NEW.user_id = '${userId}'
+       BEGIN
+         SELECT RAISE(ABORT, 'forced failure');
+       END`
+    )
+
+    expect(() =>
+      promoteAllowlistedAdmins(testDb.db, "person@example.org, ops@example.org")
+    ).toThrow(/forced failure/)
+
+    expect(testDb.db.select().from(reviewerRole).all()).toEqual([])
+  })
+})
+
 describe("setUserRole", () => {
   it("upserts without resetting created_at", async () => {
     await setUserRole(userId, "admin", { db: testDb.db, now: 100 })
@@ -239,5 +332,19 @@ describe("authorization helpers", () => {
     await expect(
       requireAdmin({ id: userId }, { db: testDb.db })
     ).resolves.toMatchObject({ role: "admin" })
+  })
+
+  it("rejects a frozen account until it is unfrozen", async () => {
+    freezeAccount(testDb.db, userId, null, 100)
+
+    await expect(
+      requireReviewer({ id: userId }, { db: testDb.db })
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringContaining("frozen"),
+    })
+    await expect(
+      requireAdmin({ id: userId }, { db: testDb.db })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" })
   })
 })

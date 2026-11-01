@@ -444,6 +444,12 @@ test("the admin page is blocked for reviewers and shows every admin surface", as
     ).toBeVisible()
     await expect(admin.page.getByText("Exports", { exact: true })).toBeVisible()
     await expect(
+      admin.page.getByText("Registration", { exact: true })
+    ).toBeVisible()
+    await expect(
+      admin.page.getByRole("button", { name: "Close registration" })
+    ).toBeVisible()
+    await expect(
       admin.page.getByRole("cell", { name: admin.email }).first()
     ).toBeVisible()
     await expect(
@@ -495,6 +501,101 @@ test("an admin promotes and demotes another user from the admin page", async ({
     await row.getByRole("button", { name: "Demote" }).click()
     await expect(admin.page.getByText("User demoted.")).toBeVisible()
     await expect(row.getByText("reviewer", { exact: true })).toBeVisible()
+  } finally {
+    await reviewer.context.close()
+    await admin.context.close()
+  }
+})
+
+test("an admin opens a user details dialog from the roles table", async ({
+  browser,
+}) => {
+  const reviewer = await newSignedInContext(browser, "admin-user-details")
+  const admin = await newSignedInContext(browser, "admin-user-details-admin")
+  promoteToAdmin(admin.email)
+
+  try {
+    await admin.page.goto("/admin")
+    const row = admin.page
+      .getByRole("row")
+      .filter({ hasText: reviewer.email })
+      .first()
+    await row
+      .getByRole("button", { name: `Details for ${reviewer.email}` })
+      .click()
+
+    const dialog = admin.page.getByRole("dialog")
+    await expect(dialog).toBeVisible()
+    await expect(
+      dialog.getByRole("heading", { name: "Admin UI User" })
+    ).toBeVisible()
+    await expect(dialog.getByText(reviewer.email)).toBeVisible()
+    await expect(dialog.getByText("Profile", { exact: true })).toBeVisible()
+    await expect(
+      dialog.getByText("Review activity", { exact: true })
+    ).toBeVisible()
+    await expect(
+      dialog.getByText("Not verified", { exact: true })
+    ).toBeVisible()
+    await expect(dialog.getByText("Role", { exact: true })).toBeVisible()
+    await expect(dialog.getByText("User ID", { exact: true })).toBeVisible()
+
+    await admin.page.keyboard.press("Escape")
+    await expect(dialog).toHaveCount(0)
+  } finally {
+    await reviewer.context.close()
+    await admin.context.close()
+  }
+})
+
+test("an admin freezes a reviewer into read-only mode", async ({ browser }) => {
+  const reviewer = await newSignedInContext(browser, "freeze-reviewer")
+  const admin = await newSignedInContext(browser, "freeze-admin")
+  promoteToAdmin(admin.email)
+  const url = "/batches/review-fixture/items/auditowl_only:1001:o2"
+
+  try {
+    await admin.page.goto("/admin")
+    const row = admin.page
+      .getByRole("row")
+      .filter({ hasText: reviewer.email })
+      .first()
+    await row.getByRole("button", { name: "Freeze", exact: true }).click()
+    await expect(admin.page.getByText(/Account frozen/)).toBeVisible()
+    await expect(row.getByText("Frozen", { exact: true })).toBeVisible()
+
+    // The frozen reviewer keeps read access but cannot reserve anything.
+    await reviewer.page.goto(url)
+    await expect(
+      reviewer.page.getByText("Your account is frozen", { exact: true })
+    ).toBeVisible()
+    await expect(
+      reviewer.page.getByRole("button", { name: "Reserve" })
+    ).toHaveCount(0)
+
+    await reviewer.page.goto("/batches/review-fixture/queue")
+    await expect(
+      reviewer.page.getByText("Your account is frozen", { exact: true })
+    ).toBeVisible()
+    await expect(
+      reviewer.page.getByRole("button", { name: /^Reserve/ })
+    ).toHaveCount(0)
+
+    await admin.page.reload()
+    const frozenRow = admin.page
+      .getByRole("row")
+      .filter({ hasText: reviewer.email })
+      .first()
+    await frozenRow
+      .getByRole("button", { name: "Unfreeze", exact: true })
+      .click()
+    await expect(admin.page.getByText("Account unfrozen.")).toBeVisible()
+    await expect(frozenRow.getByText("Frozen", { exact: true })).toHaveCount(0)
+
+    await reviewer.page.goto(url)
+    await expect(
+      reviewer.page.getByText("Your account is frozen", { exact: true })
+    ).toHaveCount(0)
   } finally {
     await reviewer.context.close()
     await admin.context.close()

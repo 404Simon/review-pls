@@ -21,6 +21,7 @@ export default async function GuideLayout({
   return (
     <AppShell
       user={{ name: session.user.name, email: session.user.email }}
+      userId={session.user.id}
       activeBatchId={null}
       isAdmin={role === "admin"}
     >

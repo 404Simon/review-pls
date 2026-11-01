@@ -9,6 +9,8 @@ import { getUserRole, setUserRole } from "@/lib/review/roles"
 import {
   adminReleaseClaimForUser,
   adminReopenItemForUser,
+  adminSetFrozenForUser,
+  adminSetRegistrationForUser,
   adminSetRoleForUser,
   claimItemForUser,
   heartbeatItemForUser,
@@ -16,6 +18,8 @@ import {
   saveDecisionForUser,
   type LoadedItemContext,
 } from "@/lib/review/service"
+import { getAccountFreeze } from "@/lib/review/account-status"
+import { isRegistrationOpen } from "@/lib/registration"
 import type { ReviewItem } from "@/lib/review/types"
 import {
   createFixtureItems,
@@ -520,5 +524,189 @@ describe("admin actions", () => {
     } finally {
       raceDb.close()
     }
+  })
+})
+
+describe("adminSetFrozenForUser", () => {
+  it("freezes a reviewer, releases their claims and blocks review writes", async () => {
+    const claimed = await claimItemForUser(testDb.db, { id: owner }, key, {
+      now: T0,
+      loadItem: loader(loaded),
+    })
+    expect(claimed).toMatchObject({ ok: true })
+
+    await expect(
+      adminSetFrozenForUser(
+        testDb.db,
+        { id: admin },
+        { userId: owner, frozen: true },
+        { now: T0 + 10 }
+      )
+    ).resolves.toEqual({
+      ok: true,
+      data: { userId: owner, frozen: true, releasedClaims: 1 },
+    })
+    expect(getAccountFreeze(testDb.db, owner)).toMatchObject({
+      userId: owner,
+      frozenAt: T0 + 10,
+      frozenBy: admin,
+    })
+    expect(testDb.db.select().from(itemClaim).all()).toEqual([])
+
+    await expect(
+      claimItemForUser(testDb.db, { id: owner }, key, {
+        now: T0 + 20,
+        loadItem: loader(loaded),
+      })
+    ).resolves.toMatchObject({ ok: false, code: "forbidden" })
+
+    await expect(
+      saveDecisionForUser(
+        testDb.db,
+        { id: owner },
+        key,
+        "closed",
+        { verdict: "same_defect", note: "" },
+        { now: T0 + 20, loadItem: loader(loaded) }
+      )
+    ).resolves.toMatchObject({ ok: false, code: "forbidden" })
+  })
+
+  it("unfreezes the account and restores claim access", async () => {
+    await adminSetFrozenForUser(
+      testDb.db,
+      { id: admin },
+      { userId: owner, frozen: true },
+      { now: T0 }
+    )
+    await expect(
+      adminSetFrozenForUser(
+        testDb.db,
+        { id: admin },
+        { userId: owner, frozen: false },
+        { now: T0 + 10 }
+      )
+    ).resolves.toEqual({
+      ok: true,
+      data: { userId: owner, frozen: false, releasedClaims: 0 },
+    })
+    expect(getAccountFreeze(testDb.db, owner)).toBeNull()
+
+    await expect(
+      claimItemForUser(testDb.db, { id: owner }, key, {
+        now: T0 + 20,
+        loadItem: loader(loaded),
+      })
+    ).resolves.toMatchObject({ ok: true })
+  })
+
+  it("rejects frozen reviewers and non-admin callers", async () => {
+    await expect(
+      adminSetFrozenForUser(
+        testDb.db,
+        { id: owner },
+        { userId: other, frozen: true }
+      )
+    ).resolves.toMatchObject({ ok: false, code: "forbidden" })
+
+    await adminSetFrozenForUser(
+      testDb.db,
+      { id: admin },
+      { userId: other, frozen: true }
+    )
+    await expect(
+      claimItemForUser(testDb.db, { id: other }, key, {
+        now: T0,
+        loadItem: loader(loaded),
+      })
+    ).resolves.toMatchObject({ ok: false, code: "forbidden" })
+  })
+
+  it("refuses to freeze the acting admin or another admin", async () => {
+    await expect(
+      adminSetFrozenForUser(
+        testDb.db,
+        { id: admin },
+        { userId: admin, frozen: true }
+      )
+    ).resolves.toMatchObject({
+      ok: false,
+      code: "forbidden",
+      message: expect.stringContaining("your own account"),
+    })
+
+    await setUserRole(other, "admin", { db: testDb.db, now: 2 })
+    await expect(
+      adminSetFrozenForUser(
+        testDb.db,
+        { id: admin },
+        { userId: other, frozen: true }
+      )
+    ).resolves.toMatchObject({
+      ok: false,
+      code: "forbidden",
+      message: expect.stringContaining("Admins cannot be frozen"),
+    })
+  })
+
+  it("clears the freeze when the reviewer is promoted to admin", async () => {
+    await adminSetFrozenForUser(
+      testDb.db,
+      { id: admin },
+      { userId: owner, frozen: true },
+      { now: T0 }
+    )
+
+    await expect(
+      adminSetRoleForUser(
+        testDb.db,
+        { id: admin },
+        {
+          userId: owner,
+          role: "admin",
+        }
+      )
+    ).resolves.toMatchObject({ ok: true })
+
+    expect(getAccountFreeze(testDb.db, owner)).toBeNull()
+    await expect(getUserRole({ id: owner }, { db: testDb.db })).resolves.toBe(
+      "admin"
+    )
+  })
+})
+
+describe("adminSetRegistrationForUser", () => {
+  it("closes and reopens registration", async () => {
+    expect(isRegistrationOpen(testDb.db)).toBe(true)
+
+    await expect(
+      adminSetRegistrationForUser(
+        testDb.db,
+        { id: admin },
+        { open: false },
+        { now: T0 }
+      )
+    ).resolves.toEqual({ ok: true, data: { open: false } })
+    expect(isRegistrationOpen(testDb.db)).toBe(false)
+
+    await expect(
+      adminSetRegistrationForUser(
+        testDb.db,
+        { id: admin },
+        { open: true },
+        { now: T0 + 1 }
+      )
+    ).resolves.toEqual({ ok: true, data: { open: true } })
+    expect(isRegistrationOpen(testDb.db)).toBe(true)
+  })
+
+  it("requires an admin", async () => {
+    await expect(
+      adminSetRegistrationForUser(testDb.db, { id: owner }, { open: false })
+    ).resolves.toMatchObject({ ok: false, code: "forbidden" })
+    await expect(
+      adminSetRegistrationForUser(testDb.db, null, { open: false })
+    ).resolves.toMatchObject({ ok: false, code: "unauthenticated" })
+    expect(isRegistrationOpen(testDb.db)).toBe(true)
   })
 })

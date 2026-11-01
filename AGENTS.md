@@ -62,8 +62,8 @@ pnpm test:e2e:ui         # Playwright UI mode
 
 pnpm review-data:prepare # build a review-data batch from the analysis repos
 pnpm review-data:check   # verify the Phase 1 data contract and counts
-pnpm review:admin:sync --list        # list registered ADMIN_EMAILS candidates
-pnpm review:admin:sync --user-id <id> # promote one confirmed candidate
+pnpm review:admin:sync --list        # preview ADMIN_EMAILS candidates (writes nothing)
+pnpm review:admin:sync --user-id <id> # promote one account now, without a restart
 pnpm review:export --batch <id> --type dataset|decisions|both --out ./exports
                          # write schema-versioned review exports (also /admin)
 
@@ -78,6 +78,7 @@ pnpm db:studio           # Drizzle Studio
 
 - Auth config lives in `src/lib/auth.ts`. Client inference is enabled in `src/lib/auth-client.ts` with `inferAdditionalFields<typeof auth>()`.
 - Registration is **invite-only**: the server-side `hooks.before` checks `loginCode` against `REGISTRATION_CODE`. This check must stay on the server. Missing `REGISTRATION_CODE` fails closed (all registrations rejected).
+- Admins can also close registration from `/admin` (`app_setting` key `registration_open`, default open when absent). When closed, the hook rejects every sign-up before checking the code and `/sign-up` renders a closed notice; sign-in and existing sessions keep working. Invite-code validation still applies while registration is open.
 - User profile fields:
   - `association` — free text, optional, default `"none"` (e.g. a chair).
   - `title` — free text, optional, default `"none"` (e.g. `M.Sc.`, `PhD`).
@@ -96,8 +97,10 @@ pnpm db:studio           # Drizzle Studio
 6. Add/extend Playwright coverage, then run `pnpm typecheck`, `pnpm lint`, `pnpm test:e2e`.
 
 The repo has the auth migration, the review-core migration, the claim-expiry
-migration, the decision-event migration and the event backfill
-(`0004_backfill_decision_events`). Do not squash or rewrite an applied migration
+migration, the decision-event migration, the event backfill
+(`0004_backfill_decision_events`), the account-freeze migration
+(`0005_reviewer_freeze`) and the settings migration (`0006_app_setting`).
+Do not squash or rewrite an applied migration
 once it has been deployed or the database contains real data; add a new
 migration instead. The backfill inserts an event for every pre-0003
 `closed`/`unsure` row that has none; it is safe to re-run because it checks for
@@ -118,6 +121,13 @@ active claim again (`claimed`, then `open` after the lease expires) while the
 unsure event stays in history. Stats and filters use that same derived status;
 they do not count a resumed item as unsure.
 
+Account freeze: `reviewer_freeze` holds one row per frozen reviewer. Freezing
+deletes that account's claims and `requireReviewer` rejects every review write
+(claim, heartbeat, draft, decision, release) with `FORBIDDEN`; reads, drafts and
+decision history stay available. Unfreezing removes the row. Admins are never
+frozen: the freeze action refuses admin targets and self, and promoting a frozen
+reviewer through `reviewer_role` clears the freeze row.
+
 Unknown batch/paper/item ids must render the `notFound()` boundary. Because
 `loading.tsx` starts the response stream first, that boundary can arrive as HTTP
 200 with the correct not-found body; the boundary is what matters. `DataErrorState`
@@ -128,13 +138,16 @@ absolute paths, hashes and loader details in an admin-only block.
 
 - `/admin` is admin-only (`notFound()` for reviewers) and is linked from the
   shell only for admins. It owns data health, roles, active claims, the unsure
-  queue, statistics, exports and the review-data cache reload action.
+  queue, statistics, account freezing, the registration switch, exports and the
+  review-data cache reload action.
 - `src/lib/review/export.ts` holds the pure, zod-validated dataset and
   decisions-only builders. `src/lib/review/export-data.ts` is the only
-  export module that touches the mount and database. The dataset keeps every
-  decision row (including drafts), claims and the append-only event history;
-  decisions-only takes final closed rows plus the unsure event history and must
-  never contain a draft.
+  export module that touches the mount and database, and its
+  `buildExportDocument` is the single payload builder shared by the download
+  route and `pnpm review:export`; do not re-serialize in either caller. The
+  dataset keeps every decision row (including drafts), claims and the
+  append-only event history; decisions-only takes final closed rows plus the
+  unsure event history and must never contain a draft.
 - `scripts/export-reviews.ts` (`pnpm review:export`) writes
   `exports/<batch>/review-dataset-<timestamp>.json` and
   `decisions-<timestamp>.json`. Existing files at the same timestamp are refused
@@ -144,8 +157,9 @@ absolute paths, hashes and loader details in an admin-only block.
 - `src/lib/review/data-health.ts` caches evidence inspection for five minutes.
   `adminReloadReviewDataAction` clears both the loader cache and the data-health
   cache. Do not make the admin page re-resolve every anchor on each request.
-- Exports may include reviewer email; reviewer-facing views must keep using
-  `getReviewerNames` (id + name only).
+- Exports may include reviewer email plus the `title`/`association` profile
+  fields; reviewer-facing views must keep using `getReviewerNames` (id + name
+  only).
 
 ## Environment and security
 
@@ -156,11 +170,11 @@ absolute paths, hashes and loader details in an admin-only block.
 - `DATABASE_URL` — SQLite path, e.g. `./local.db`.
 - `REVIEW_DATA_ROOT` — read-only review-data mount, one directory per batch (e.g. `./review-data`). Never commit it.
 - `REGISTRATION_CODE` — invite code. **Never expose it to the client**; never name it `NEXT_PUBLIC_*`, log it, or return it in an API response.
-- `ADMIN_EMAILS` — comma-separated **candidate allowlist** for `pnpm review:admin:sync`. It never grants admin at request time. The real admin registers first; an operator inspects `pnpm review:admin:sync --list` and then runs `pnpm review:admin:sync --user-id <id>` to promote exactly that account. This confirmation step prevents pre-registration takeover: anyone with the invite code could otherwise register an allowlisted address before its owner. Unmatched configured emails are reported and never created, and the command exits non-zero for them.
+- `ADMIN_EMAILS` — comma-separated list of the accounts that should be admin. On every server start `src/instrumentation.ts` promotes each **already registered** account whose email matches (`promoteAllowlistedAdmins`). Emails without an account are logged, never created, and picked up on the next start once that person registers. Promotion only: it never demotes, so roles granted through `/admin` stay and an empty or typo'd allowlist cannot lock a deployment out of its console. Because the invite code is shared and email verification is not configured, this trusts whoever registered the address first, so keep `REGISTRATION_CODE` private and check the role table on `/admin` after onboarding. `pnpm review:admin:sync --list` previews the candidates and `--user-id <id>` promotes one account immediately without a restart.
 
 Security rules:
 
-- Admin bootstrap is explicit: `ADMIN_EMAILS` only lists candidates, and promotion requires `pnpm review:admin:sync --user-id <id>` after the real admin registered. Never promote by email match alone; that allows pre-registration takeover.
+- Admin promotion runs at server start from `ADMIN_EMAILS` and only ever promotes. Authorization must keep reading `reviewer_role`; never grant admin from an env match at request time. Startup promotion trusts the email, so a leaked `REGISTRATION_CODE` lets someone register an allowlisted address and become admin on the next start.
 - Keep the registration-code comparison server-side and fail closed when the variable is unset.
 - Do not disable Better Auth rate limiting, CSRF, or origin checks without explicit approval.
 - Do not weaken cookie or session settings to make local tests pass.

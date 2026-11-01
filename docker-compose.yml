@@ -28,9 +28,10 @@ services:
       #   mkdir -p review-data && chmod -R a+rX review-data
       REVIEW_DATA_ROOT: "/data/reviews"
 
-      # Candidate allowlist only. It never grants admin at request time.
-      # Inspect registered candidates with `pnpm review:admin:sync --list` and
-      # promote the confirmed account with `--user-id <id>`.
+      # Accounts that are promoted to admin on every start, once registered.
+      # Promotion is one-way here: roles granted in /admin are left alone.
+      # Preview with `pnpm review:admin:sync --list`, or promote one account
+      # now with `--user-id <id>` (run on the host, not in this image).
       ADMIN_EMAILS: "simon@example.org"
 
       NODE_ENV: "production"

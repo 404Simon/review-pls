@@ -38,12 +38,15 @@ export function QueueTable({
   reviewerNames,
   currentUserId,
   readOnly,
+  frozen,
 }: {
   batchId: string
   rows: readonly QueueRow[]
   reviewerNames: Record<string, string>
   currentUserId: string
   readOnly: boolean
+  /** Frozen accounts may browse the queue but cannot reserve items. */
+  frozen: boolean
 }) {
   const router = useRouter()
   const [pendingId, setPendingId] = useState<string | null>(null)
@@ -92,6 +95,7 @@ export function QueueTable({
           const mine = row.state.claim?.userId === currentUserId
           const canReserve =
             !readOnly &&
+            !frozen &&
             row.state.status !== "closed" &&
             row.state.claim === null
           return (
@@ -159,7 +163,7 @@ export function QueueTable({
                   </Badge>
                 ) : (
                   <span className="text-xs text-muted-foreground">
-                    {readOnly ? "Read only" : "View only"}
+                    {readOnly || frozen ? "Read only" : "View only"}
                   </span>
                 )}
               </TableCell>

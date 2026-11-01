@@ -6,16 +6,20 @@ import {
   Gauge,
   ListChecks,
   ShieldCheck,
+  UserPlus,
   Users,
 } from "lucide-react"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
 import {
+  AdminFreezeControl,
+  AdminRegistrationControl,
   AdminReloadData,
   AdminReleaseClaim,
   AdminRoleControl,
 } from "@/components/review/admin-controls"
+import { AdminUserDetails } from "@/components/review/admin-user-details"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import {
@@ -65,6 +69,7 @@ import {
   listUserRoles,
   parseAdminEmails,
 } from "@/lib/review/roles"
+import { isRegistrationOpen } from "@/lib/registration"
 import {
   computeBatchStats,
   computePaperStats,
@@ -78,6 +83,7 @@ import type {
   DecisionRecord,
   ReviewItem,
 } from "@/lib/review/types"
+import { summarizeUserActivity } from "@/lib/review/user-activity"
 import { getSession } from "@/lib/session"
 
 interface PaperAdminStats {
@@ -334,6 +340,7 @@ export default async function AdminPage() {
 
   const listed = await safeListBatches()
   const users = listUserRoles(db)
+  const registrationOpen = isRegistrationOpen(db)
   const userNames = new Map(users.map((user) => [user.id, user.name]))
   // One server timestamp for the whole page and one claim query for every
   // mounted batch. The per-batch loaders only filter that snapshot.
@@ -348,6 +355,14 @@ export default async function AdminPage() {
       loadBatchAdminData(summary, activeClaims, now)
     )
   )
+  // Already-loaded rows feed the user details dialog, so opening it needs no
+  // extra database read.
+  const activityBatches = batches.map((batch) => ({
+    batchId: batch.summary.batchId,
+    decisions: batch.decisions,
+    events: batch.events,
+    claims: batch.claims,
+  }))
 
   const itemLookup = new Map<string, { batchId: string; item: ReviewItem }>()
   for (const batch of batches) {
@@ -395,8 +410,8 @@ export default async function AdminPage() {
           <p className="max-w-3xl text-sm text-muted-foreground">
             Data health, roles, claims, the unsure queue, statistics and
             archival exports. Every action on this page is admin-only;{" "}
-            <span className="font-mono">ADMIN_EMAILS</span> remains a candidate
-            allowlist and never grants a role at request time.
+            <span className="font-mono">ADMIN_EMAILS</span> is applied as stored
+            role rows on server start and is never consulted at request time.
           </p>
         </div>
         <AdminReloadData />
@@ -830,21 +845,23 @@ export default async function AdminPage() {
             Roles and admin bootstrap
           </CardTitle>
           <CardDescription>
-            Promote or demote registered accounts. To bootstrap the first admin,
-            run the sync command yourself after the account registered.
+            Promote or demote registered accounts. Open a user&apos;s details to
+            see profile fields and review activity. Freezing an account makes it
+            read-only and releases its claims. Accounts whose email is listed in
+            ADMIN_EMAILS are promoted automatically on the next server start.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs">
-            <p className="font-medium">Explicit admin bootstrap</p>
+            <p className="font-medium">Admin promotion from ADMIN_EMAILS</p>
             <p className="mt-1 text-muted-foreground">
-              Inspect candidates with{" "}
-              <code className="font-mono">pnpm review:admin:sync --list</code>,
-              then promote one confirmed account with{" "}
+              Every server start promotes registered accounts whose email is
+              listed in ADMIN_EMAILS. It only ever promotes, so roles granted
+              here stay. To promote one account without a restart, run{" "}
               <code className="font-mono">
                 pnpm review:admin:sync --user-id &lt;id&gt;
-              </code>
-              . A matching ADMIN_EMAILS entry alone never grants admin.
+              </code>{" "}
+              on the host, or use the action below.
             </p>
             <p className="mt-2 text-muted-foreground">
               Configured candidates:{" "}
@@ -871,42 +888,85 @@ export default async function AdminPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell>
-                    <span className="font-medium">{user.name}</span>
-                    <span className="ml-2 font-mono text-xs text-muted-foreground">
-                      {user.id}
-                    </span>
-                  </TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={user.role === "admin" ? "default" : "outline"}
-                    >
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {configuredEmails.includes(
-                      user.email.trim().toLowerCase()
-                    ) ? (
-                      <Badge variant="secondary">ADMIN_EMAILS</Badge>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <AdminRoleControl
-                      userId={user.id}
-                      role={user.role}
-                      isSelf={user.id === session.user.id}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {users.map((user) => {
+                const candidate = configuredEmails.includes(
+                  user.email.trim().toLowerCase()
+                )
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell>
+                      <span className="font-medium">{user.name}</span>
+                      <span className="ml-2 font-mono text-xs text-muted-foreground">
+                        {user.id}
+                      </span>
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={user.role === "admin" ? "default" : "outline"}
+                      >
+                        {user.role}
+                      </Badge>
+                      {user.frozenAt ? (
+                        <Badge variant="destructive" className="ml-2">
+                          Frozen
+                        </Badge>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      {candidate ? (
+                        <Badge variant="secondary">ADMIN_EMAILS</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <AdminUserDetails
+                          user={user}
+                          candidate={candidate}
+                          isSelf={user.id === session.user.id}
+                          activity={summarizeUserActivity(
+                            user.id,
+                            activityBatches,
+                            now
+                          )}
+                        />
+                        <AdminRoleControl
+                          userId={user.id}
+                          role={user.role}
+                          isSelf={user.id === session.user.id}
+                        />
+                        <AdminFreezeControl
+                          userId={user.id}
+                          frozen={user.frozenAt !== null}
+                          isSelf={user.id === session.user.id}
+                          isAdmin={user.role === "admin"}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserPlus data-icon="inline-start" />
+            Registration
+          </CardTitle>
+          <CardDescription>
+            New accounts are always invite-only. Closing registration blocks
+            every new sign-up without affecting existing reviewers, who can
+            still sign in and review.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AdminRegistrationControl open={registrationOpen} />
         </CardContent>
       </Card>
 

@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { createAuthMiddleware, APIError } from "better-auth/api"
 import { db } from "@/db"
-import { isValidRegistrationCode } from "@/lib/registration-code"
+import { isRegistrationOpen, registrationGate } from "@/lib/registration"
 
 const profileFieldLimits = {
   name: 100,
@@ -73,9 +73,10 @@ export const auth = betterAuth({
 
       if (ctx.path !== "/sign-up/email") return
 
-      if (!isValidRegistrationCode(ctx.body?.loginCode)) {
-        throw new APIError("BAD_REQUEST", {
-          message: "Invalid registration code",
+      const gate = registrationGate(isRegistrationOpen(db), ctx.body?.loginCode)
+      if (!gate.allowed) {
+        throw new APIError(gate.status === 403 ? "FORBIDDEN" : "BAD_REQUEST", {
+          message: gate.message,
         })
       }
     }),

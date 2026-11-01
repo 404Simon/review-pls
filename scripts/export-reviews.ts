@@ -9,14 +9,12 @@ import { pathToFileURL } from "node:url"
 import { migrate } from "drizzle-orm/better-sqlite3/migrator"
 
 import type { AppDatabase } from "@/db"
+import { exportTypeSchema, type ExportType } from "@/lib/review/export"
 import {
-  buildDecisionsExport,
-  buildReviewDataset,
-  exportFileName,
-  exportTypeSchema,
-  type ExportType,
-} from "@/lib/review/export"
-import { loadExportData } from "@/lib/review/export-data"
+  buildExportDocument,
+  type ExportDocument,
+  type ExportDocumentType,
+} from "@/lib/review/export-data"
 import { ReviewDataError } from "@/lib/review/load"
 
 export interface ExportOptions {
@@ -379,46 +377,41 @@ export async function runExportReviews(
   await assertDatabaseFile(options.databaseUrl)
   const { db } = await import("@/db")
   await migrateDatabase(db)
-  const data = await loadExportData(db, options.batchId, {
-    root: options.root,
-    now: options.now,
-    includeExpiredClaims: true,
-  })
+
+  const types: ExportDocumentType[] =
+    options.type === "both" ? ["dataset", "decisions"] : [options.type]
 
   // Build every requested payload before touching the filesystem so a builder
-  // failure cannot leave an earlier file behind.
-  const files: ExportFile[] = []
-  let datasetPath: string | null = null
-  let decisionsPath: string | null = null
-
-  if (options.type === "dataset" || options.type === "both") {
-    datasetPath = exportFileName("dataset", options.now)
-    files.push({
-      path: datasetPath,
-      content: `${JSON.stringify(buildReviewDataset(data), null, 2)}\n`,
-    })
-  }
-  if (options.type === "decisions" || options.type === "both") {
-    decisionsPath = exportFileName("decisions", options.now)
-    files.push({
-      path: decisionsPath,
-      content: `${JSON.stringify(buildDecisionsExport(data), null, 2)}\n`,
-    })
+  // failure cannot leave an earlier file behind. `buildExportDocument` is the
+  // same function the admin download route uses, so both paths stay identical.
+  const documents: ExportDocument[] = []
+  for (const type of types) {
+    documents.push(
+      await buildExportDocument(db, options.batchId, type, {
+        root: options.root,
+        now: options.now,
+      })
+    )
   }
 
   const directory = path.resolve(options.out, options.batchId)
-  const targets = files.map((file) => ({
-    path: path.join(directory, file.path),
-    content: file.content,
+  const targets = documents.map((document) => ({
+    path: path.join(directory, document.fileName),
+    content: document.content,
   }))
   const force = options.force === true
   await assertTargetsAvailable(targets, force)
   await mkdir(directory, { recursive: true })
   await writeExportFiles(targets, force)
 
+  const writtenPath = (type: ExportDocumentType): string | null => {
+    const document = documents.find((entry) => entry.type === type)
+    return document ? path.join(directory, document.fileName) : null
+  }
+
   return {
-    datasetPath: datasetPath ? path.join(directory, datasetPath) : null,
-    decisionsPath: decisionsPath ? path.join(directory, decisionsPath) : null,
+    datasetPath: writtenPath("dataset"),
+    decisionsPath: writtenPath("decisions"),
   }
 }
 

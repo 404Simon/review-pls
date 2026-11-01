@@ -1,4 +1,4 @@
-import { SearchCheck } from "lucide-react"
+import { SearchCheck, Snowflake } from "lucide-react"
 import Link from "next/link"
 import { Suspense } from "react"
 
@@ -9,6 +9,8 @@ import { KeyboardLayer } from "@/components/review/keyboard-layer"
 import { ThemeToggle } from "@/components/review/theme-toggle"
 import { UserMenu } from "@/components/review/user-menu"
 import { WorkspaceNav } from "@/components/review/workspace-nav"
+import { db } from "@/db"
+import { isUserFrozen } from "@/lib/review/account-status"
 import { batchNavItems } from "@/lib/review/batch-nav"
 import { listBatches, ReviewDataError } from "@/lib/review/load"
 
@@ -19,6 +21,7 @@ export interface AppShellUser {
 
 export interface AppShellProps {
   user: AppShellUser
+  userId: string
   activeBatchId: string | null
   isAdmin: boolean
   children: React.ReactNode
@@ -37,11 +40,13 @@ async function safeBatches() {
 
 export async function AppShell({
   user,
+  userId,
   activeBatchId,
   isAdmin,
   children,
 }: AppShellProps) {
   const summary = await safeBatches()
+  const frozen = isUserFrozen(db, userId)
   // Only pass the label to the client. Loader errors contain absolute mount
   // paths and must stay in the server-rendered admin details block.
   const batches = summary.map((batch) => ({
@@ -117,6 +122,21 @@ export async function AppShell({
         tabIndex={-1}
         className="mx-auto flex w-full max-w-[100rem] flex-1 flex-col gap-6 p-4 outline-none sm:p-6"
       >
+        {frozen ? (
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-xl border border-warning-border bg-warning px-4 py-3 text-sm text-warning-foreground"
+          >
+            <Snowflake data-icon="inline-start" className="mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-0.5">
+              <p className="font-medium">Your account is frozen</p>
+              <p>
+                You can browse reviews and decisions, but you cannot reserve
+                items or save changes. Ask an admin to unfreeze your account.
+              </p>
+            </div>
+          </div>
+        ) : null}
         {children}
       </main>
 

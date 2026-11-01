@@ -38,10 +38,11 @@ Bootstrap admin roles from the ADMIN_EMAILS allowlist.
                     listed in ADMIN_EMAILS.
   --help, -h        Show this help.
 
-ADMIN_EMAILS is only a candidate allowlist. It never grants admin at request
-time and the sync never promotes automatically. Because the invite code is
-shared, an attacker could pre-register an allowlisted address, so an operator
-must confirm the real admin's user id after that person has registered.
+ADMIN_EMAILS lists the accounts that should be admin. The server promotes
+registered allowlisted accounts on every start; this command promotes one
+confirmed account immediately, without waiting for a restart. Because the
+invite code is shared, check that the confirmed account belongs to the real
+admin before promoting it.
 
 The command exits non-zero when a configured email has no registered account,
 so a typo or an unregistered admin is visible instead of silently ignored.`

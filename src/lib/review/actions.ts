@@ -12,6 +12,8 @@ import { requireAdmin } from "@/lib/review/roles"
 import {
   adminReopenItemForUser,
   adminReleaseClaimForUser,
+  adminSetFrozenForUser,
+  adminSetRegistrationForUser,
   adminSetRoleForUser,
   claimItemForUser,
   discardDraftForUser,
@@ -48,6 +50,15 @@ const saveDecisionSchema = itemKeySchema.extend({
 const setRoleSchema = z.object({
   userId: z.string().min(1),
   role: z.enum(["reviewer", "admin"]),
+})
+
+const setFrozenSchema = z.object({
+  userId: z.string().min(1),
+  frozen: z.boolean(),
+})
+
+const setRegistrationSchema = z.object({
+  open: z.boolean(),
 })
 
 function revalidateItem(key: ItemKey): void {
@@ -198,6 +209,42 @@ export async function adminSetRoleAction(
     const result = await adminSetRoleForUser(db, session?.user, parsed)
     if (result.ok) {
       revalidatePath("/admin")
+    }
+    return result
+  } catch (error) {
+    return toServiceError(error)
+  }
+}
+
+export async function adminSetFrozenAction(
+  input: unknown
+): Promise<
+  ActionResult<{ userId: string; frozen: boolean; releasedClaims: number }>
+> {
+  try {
+    const parsed = setFrozenSchema.parse(input)
+    const session = await getSession()
+    const result = await adminSetFrozenForUser(db, session?.user, parsed)
+    if (result.ok) {
+      revalidatePath("/admin")
+      revalidatePath("/dashboard")
+    }
+    return result
+  } catch (error) {
+    return toServiceError(error)
+  }
+}
+
+export async function adminSetRegistrationAction(
+  input: unknown
+): Promise<ActionResult<{ open: boolean }>> {
+  try {
+    const parsed = setRegistrationSchema.parse(input)
+    const session = await getSession()
+    const result = await adminSetRegistrationForUser(db, session?.user, parsed)
+    if (result.ok) {
+      revalidatePath("/admin")
+      revalidatePath("/sign-up")
     }
     return result
   } catch (error) {

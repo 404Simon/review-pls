@@ -1,12 +1,9 @@
 import { db } from "@/db"
 import { contentDisposition, idSchema, jsonError } from "@/lib/review/api"
 import {
-  buildDecisionsExport,
-  buildReviewDataset,
-  exportFileName,
-  exportTypeSchema,
-} from "@/lib/review/export"
-import { loadExportData } from "@/lib/review/export-data"
+  buildExportDocument,
+  type ExportDocumentType,
+} from "@/lib/review/export-data"
 import { ReviewDataError } from "@/lib/review/load"
 import { AuthorizationError, requireAdmin } from "@/lib/review/roles"
 import { getSession } from "@/lib/session"
@@ -17,7 +14,9 @@ interface RouteParams {
 
 type RouteContext = { params: Promise<RouteParams> }
 
-const DOWNLOAD_TYPES = new Set(["dataset", "decisions"])
+function isDownloadType(value: string): value is ExportDocumentType {
+  return value === "dataset" || value === "decisions"
+}
 
 export async function GET(
   request: Request,
@@ -45,28 +44,20 @@ export async function GET(
 
   const url = new URL(request.url)
   const requestedType = url.searchParams.get("type") ?? "dataset"
-  if (!DOWNLOAD_TYPES.has(requestedType)) {
+  if (!isDownloadType(requestedType)) {
     return jsonError(
       400,
       "invalid_request",
       "type must be dataset or decisions."
     )
   }
-  const type = exportTypeSchema.parse(requestedType)
-  if (type === "both") {
-    return jsonError(400, "invalid_request", "Choose a single export type.")
-  }
 
   const now = Date.now()
-  let body: string
+  let document: Awaited<ReturnType<typeof buildExportDocument>>
   try {
-    const data = await loadExportData(db, batchId.data, {
+    document = await buildExportDocument(db, batchId.data, requestedType, {
       now,
-      includeExpiredClaims: type === "dataset",
     })
-    const exported =
-      type === "dataset" ? buildReviewDataset(data) : buildDecisionsExport(data)
-    body = `${JSON.stringify(exported, null, 2)}\n`
   } catch (error) {
     if (error instanceof ReviewDataError) {
       return jsonError(404, "not_found", "This batch is not available.")
@@ -74,13 +65,15 @@ export async function GET(
     throw error
   }
 
-  const fileName = exportFileName(type, now)
-  return new Response(body, {
+  return new Response(document.content, {
     status: 200,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": contentDisposition(fileName, "attachment"),
-      "Content-Length": String(Buffer.byteLength(body, "utf8")),
+      "Content-Disposition": contentDisposition(
+        document.fileName,
+        "attachment"
+      ),
+      "Content-Length": String(Buffer.byteLength(document.content, "utf8")),
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     },

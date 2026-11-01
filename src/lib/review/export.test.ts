@@ -234,8 +234,20 @@ function input(overrides: Partial<ExportInput> = {}): ExportInput {
     events: [unsureEvent, reopenedEvent],
     claims: [claim],
     reviewers: [
-      { id: "u1", name: "Alice", email: "alice@example.org" },
-      { id: "u2", name: "Bob", email: "bob@example.org" },
+      {
+        id: "u1",
+        name: "Alice",
+        email: "alice@example.org",
+        title: "M.Sc.",
+        association: "Chair of Software Engineering",
+      },
+      {
+        id: "u2",
+        name: "Bob",
+        email: "bob@example.org",
+        title: null,
+        association: null,
+      },
     ],
     exportedAt: T0 + 1000,
     ...overrides,
@@ -299,6 +311,8 @@ describe("buildReviewDataset", () => {
       id: "u1",
       name: "Alice",
       email: "alice@example.org",
+      title: "M.Sc.",
+      association: "Chair of Software Engineering",
     })
     expect(dataset.stats.batch.total).toBe(6)
     expect(dataset.stats.papers[0]?.paperId).toBe("p1")
@@ -425,7 +439,12 @@ describe("buildDecisionsExport", () => {
     expect(final?.itemKind).toBe("cluster")
     expect(final?.itemRef).toBe("M01")
     expect(final?.decision).toEqual(closed.payload)
-    expect(final?.reviewer).toEqual({ id: "u1", name: "Alice" })
+    expect(final?.reviewer).toEqual({
+      id: "u1",
+      name: "Alice",
+      title: "M.Sc.",
+      association: "Chair of Software Engineering",
+    })
     expect(final?.stale).toBe(false)
     expect(compact.decisions.some((row) => row.itemKind === "agent_only")).toBe(
       false
@@ -440,7 +459,12 @@ describe("buildDecisionsExport", () => {
         itemKind: "auditowl_only",
         itemRef: "o2",
         note: "needs a second look",
-        reviewer: { id: "u1", name: "Alice" },
+        reviewer: {
+          id: "u1",
+          name: "Alice",
+          title: "M.Sc.",
+          association: "Chair of Software Engineering",
+        },
         at: new Date(T0 + 30).toISOString(),
       },
     ])
@@ -464,6 +488,23 @@ describe("buildDecisionsExport", () => {
       kind: "auditowl_only",
       ref: "o2",
     })
+  })
+})
+
+describe("reviewer profile fields", () => {
+  it("still validates documents written before title/association existed", () => {
+    const legacy = JSON.parse(
+      JSON.stringify(buildDecisionsExport(input()))
+    ) as { decisions: { reviewer: Record<string, unknown> }[] }
+
+    for (const row of legacy.decisions) {
+      delete row.reviewer.title
+      delete row.reviewer.association
+    }
+
+    const parsed = decisionsExportSchema.parse(legacy)
+    expect(parsed.decisions[0]?.reviewer.title).toBeNull()
+    expect(parsed.decisions[0]?.reviewer.association).toBeNull()
   })
 })
 

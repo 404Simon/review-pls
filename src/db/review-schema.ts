@@ -30,6 +30,30 @@ export const reviewerRole = sqliteTable("reviewer_role", {
   createdAt: integer("created_at").notNull(),
 })
 
+/**
+ * Frozen accounts keep read access but cannot claim items or save decisions.
+ * Admins are never frozen: promoting a reviewer removes the row instead.
+ */
+export const reviewerFreeze = sqliteTable("reviewer_freeze", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  frozenAt: integer("frozen_at").notNull(),
+  frozenBy: text("frozen_by").references(() => user.id, {
+    onDelete: "set null",
+  }),
+})
+
+/**
+ * Small key/value store for admin-controlled switches. Currently only
+ * `registration_open` (value `"1"` or `"0"`, default open when absent).
+ */
+export const appSetting = sqliteTable("app_setting", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+})
+
 export const itemClaim = sqliteTable(
   "item_claim",
   {

@@ -23,6 +23,7 @@ import {
 } from "@/lib/review/filters"
 import { loadBatchReviewView } from "@/lib/review/ui-data"
 import { isMissingReviewData, ReviewDataError } from "@/lib/review/load"
+import { isUserFrozen } from "@/lib/review/account-status"
 import { getUserRole } from "@/lib/review/roles"
 import { db } from "@/db"
 import { getSession } from "@/lib/session"
@@ -39,6 +40,7 @@ export default async function QueuePage({ params, searchParams }: PageProps) {
   }
 
   const role = await getUserRole(session.user, { db })
+  const frozen = isUserFrozen(db, session.user.id)
   const { batch: batchId } = await params
   const rawParams = await searchParams
   const query = normalizeParams(rawParams)
@@ -121,7 +123,9 @@ export default async function QueuePage({ params, searchParams }: PageProps) {
             <ClipboardList data-icon="inline-start" />
             {rows.length} visible
           </Badge>
-          {readOnly ? (
+          {frozen ? (
+            <Badge variant="secondary">Frozen · read only</Badge>
+          ) : readOnly ? (
             <Badge variant="secondary">Read-only closed view</Badge>
           ) : null}
         </div>
@@ -205,9 +209,11 @@ export default async function QueuePage({ params, searchParams }: PageProps) {
         <CardHeader>
           <CardTitle>Severity queue</CardTitle>
           <CardDescription>
-            {readOnly
-              ? "Closed items are shown for inspection. Reopen them from the item page if you are an admin."
-              : "Reserve an item to edit it. Leases last two hours and extend while the item page is open."}
+            {frozen
+              ? "Your account is frozen, so the queue is read-only. Ask an admin to restore review access."
+              : readOnly
+                ? "Closed items are shown for inspection. Reopen them from the item page if you are an admin."
+                : "Reserve an item to edit it. Leases last two hours and extend while the item page is open."}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
@@ -234,6 +240,7 @@ export default async function QueuePage({ params, searchParams }: PageProps) {
               reviewerNames={view.reviewerNames}
               currentUserId={session.user.id}
               readOnly={readOnly}
+              frozen={frozen}
             />
           )}
         </CardContent>

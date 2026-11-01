@@ -130,6 +130,8 @@ export interface ItemReviewProps {
   reviewerNames: Record<string, string>
   currentUserId: string
   role: "reviewer" | "admin"
+  /** Frozen accounts get a read-only page: no reserve and no decision form. */
+  frozen: boolean
   evidence: EvidenceBundle
   linkCandidates: readonly LinkCandidate[]
   nextItemHref: string | null
@@ -154,6 +156,7 @@ export function ItemReview({
   reviewerNames,
   currentUserId,
   role,
+  frozen,
   evidence,
   linkCandidates,
   nextItemHref,
@@ -285,7 +288,8 @@ export function ItemReview({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claim?.userId, currentUserId, router, status])
 
-  const canEdit = status !== "closed" && claim?.userId === currentUserId
+  const canEdit =
+    !frozen && status !== "closed" && claim?.userId === currentUserId
   const canShowFinalDecision = status === "closed" && finalDecision !== null
   const popoverAvailable = canEdit || canShowFinalDecision
 
@@ -473,7 +477,11 @@ export function ItemReview({
           }
           break
         case "r":
-          if (claim?.userId === currentUserId && status !== "closed") {
+          if (
+            !frozen &&
+            claim?.userId === currentUserId &&
+            status !== "closed"
+          ) {
             event.preventDefault()
             void release()
           }
@@ -499,6 +507,7 @@ export function ItemReview({
     canEdit,
     claim?.userId,
     currentUserId,
+    frozen,
     popoverOpen,
     focusSearchHref,
     helpOpen,
@@ -601,6 +610,7 @@ export function ItemReview({
           currentUserId={currentUserId}
           reviewerNames={reviewerNames}
           pending={pending}
+          frozen={frozen}
           onClaim={() => void claimItem()}
           onRelease={() => void releaseItem()}
           actionTrigger={

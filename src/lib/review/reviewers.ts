@@ -48,6 +48,8 @@ export interface ReviewerIdentity {
   id: string
   name: string
   email: string
+  title: string | null
+  association: string | null
 }
 
 export function getReviewerIdentities(
@@ -59,7 +61,13 @@ export function getReviewerIdentities(
     return []
   }
   return db
-    .select({ id: user.id, name: user.name, email: user.email })
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      title: user.title,
+      association: user.association,
+    })
     .from(user)
     .where(inArray(user.id, ids))
     .all()

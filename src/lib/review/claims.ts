@@ -248,6 +248,18 @@ export async function adminReleaseClaim(
 }
 
 /**
+ * Drop every claim held by one account. Used when an admin freezes a reviewer:
+ * the frozen account must not keep items reserved, and other reviewers can pick
+ * the work up immediately.
+ */
+export function releaseUserClaims(
+  tx: ReviewTransaction,
+  userId: string
+): number {
+  return tx.delete(itemClaim).where(eq(itemClaim.userId, userId)).run().changes
+}
+
+/**
  * Returns only a live claim on an open item. Expired rows and claims on items
  * that already have a final decision are removed lazily.
  */

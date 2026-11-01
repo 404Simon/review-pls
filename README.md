@@ -32,7 +32,7 @@ The image is built from `Dockerfile` (Next.js standalone output) and is intended
    ssh server 'chmod -R a+rX /srv/review-pls/review-data'
    ```
 
-3. Set the environment variables in `docker-compose.yml`. `ADMIN_EMAILS` is only a candidate allowlist; see the bootstrap notes below.
+3. Set the environment variables in `docker-compose.yml`. `ADMIN_EMAILS` lists the accounts that become admin on start; see the bootstrap notes below.
 
 4. Start it:
 
@@ -55,14 +55,21 @@ Permissions: the container's `node` user (uid 1000) must be able to read every f
 
 ## Admin bootstrap
 
-`ADMIN_EMAILS` is a comma-separated **candidate allowlist**, not a runtime grant. The real admin registers first, then an operator inspects the candidates and confirms one account:
+`ADMIN_EMAILS` is a comma-separated list of the accounts that should be admin. On every start the server promotes each **already registered** account whose email matches it (`src/instrumentation.ts`), so the admin set follows the deployment's environment after a restart:
 
 ```bash
-pnpm review:admin:sync --list
-pnpm review:admin:sync --user-id <registered-user-id>
+docker compose restart
+docker compose logs -f        # "Promoted N allowlisted account(s) to admin: ..."
 ```
 
-`--list` writes nothing. Promotion requires the explicit user id; an email match alone never promotes. Unmatched configured emails are reported and make the command exit non-zero. The `/admin` page can promote and demote other users afterwards, but the server refuses self-demotion and demoting the last admin.
+Promotion only, never demotion: roles granted through `/admin` stay, so a typo or a temporarily empty allowlist cannot lock you out of the console. Emails without an account are logged as warnings and are never created; the next start picks them up once that person registers.
+
+To promote without a restart, run the sync on the **host** against the same database (the runtime image has no `pnpm` or `tsx`):
+
+```bash
+ADMIN_EMAILS="simon@example.org" DATABASE_URL=./data/review.db \
+  pnpm review:admin:sync --user-id <registered-user-id>
+```
 
 ## Exports
 
@@ -77,10 +84,10 @@ Use `--force` only when you intentionally want to replace an export that already
 
 The database must already exist. The command applies pending Drizzle migrations idempotently before reading, and fails with an actionable message (without creating an empty database) when the path is wrong. Use `pnpm db:migrate` first if the migration folder is unavailable.
 
-Two deterministic, schema-versioned JSON files are written to `exports/<batch>/`. `--type dataset` or `--type decisions` writes only that file. For `--type both`, every payload is built and staged before either file is installed, so a builder or staging failure leaves no partial export. Installing is two renames, not one atomic directory swap: a process kill between them can still leave only one of the two files. Existing files at the same timestamp are refused; pass `--force` to replace them. With `--force`, pre-existing files are moved aside and restored if installation fails.
+Two deterministic, schema-versioned JSON files are written to `exports/<batch>/`. `--type dataset` or `--type decisions` writes only that file. Both the download route and the CLI call the same `buildExportDocument` helper, so a download and a written file of the same type and timestamp are byte-identical. For `--type both`, every payload is built and staged before either file is installed, so a builder or staging failure leaves no partial export. Installing is two renames, not one atomic directory swap: a process kill between them can still leave only one of the two files. Existing files at the same timestamp are refused; pass `--force` to replace them. With `--force`, pre-existing files are moved aside and restored if installation fails.
 
 - `review-dataset-<timestamp>.json` — the full archival dataset: `batch.json`, the complete per-paper sources (`overlap.json`, both findings files and every built item with its findings, comparator and hash), claims, every current decision row (including drafts) and the append-only decision event history, plus batch/paper/reviewer stats. It can be re-analysed without the review-data mount.
-- `decisions-<timestamp>.json` — final closed decisions only, plus the durable unsure history from events. Drafts are excluded, and finding bodies are intentionally not duplicated here.
+- `decisions-<timestamp>.json` — final closed decisions only, plus the durable unsure history from events. Drafts are excluded, and finding bodies are intentionally not duplicated here. Reviewers appear as id, name, title and association; the dataset additionally keeps the email.
 
 The admin download route is `GET /api/admin/export/<batch>?type=dataset|decisions`. It requires an admin session and sends the JSON as an attachment.
 
@@ -91,6 +98,8 @@ Code search uses `ripgrep`. The Docker image installs it; a local checkout needs
 ## Operations
 
 - `/admin` shows mounted batches, manifest hashes, included/excluded papers, per-paper item counts, evidence resolution and quote-match summaries, build issues, missing files, stale and orphaned decisions, roles, active claims, the unsure queue, statistics and export buttons.
+- Admins can freeze a reviewer account from `/admin`. A frozen account keeps read access but cannot claim items or save decisions, and its active claims are released so other reviewers can pick the work up. Unfreezing restores review access. Admins cannot be frozen; demote the account first.
+- Admins can close registration from `/admin`. New sign-ups are then blocked even with a valid invite code, and `/sign-up` shows a closed notice; existing accounts can still sign in and review. Registration is open by default and the `REGISTRATION_CODE` is still required while it is open.
 - “Reload data” clears the in-process review-data and data-health caches immediately. Without a reload, evidence inspection is cached for five minutes. It does not modify the mount or the database.
 - Unknown batch, paper and item ids render the not-found boundary. Because `loading.tsx` starts the response stream before `notFound()` runs, that boundary can arrive as HTTP 200 with the correct not-found body; what matters is the boundary, not the status code. A corrupt mounted batch shows a generic reviewer message and keeps loader details in an admin-only block.
 

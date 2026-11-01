@@ -5,6 +5,7 @@ import { ItemReview } from "@/components/review/item-review"
 import type { DecisionHistoryEntry } from "@/components/review/decision-history"
 import type { LinkCandidate } from "@/components/review/link-picker"
 import { db } from "@/db"
+import { isUserFrozen } from "@/lib/review/account-status"
 import {
   getItemDecisionEvents,
   getItemDecisionRows,
@@ -86,6 +87,7 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
   }
 
   const role = await getUserRole(session.user, { db })
+  const frozen = isUserFrozen(db, session.user.id)
   const rawParams = await params
   const batchId = rawParams.batch
 
@@ -300,6 +302,7 @@ export default async function ItemPage({ params, searchParams }: PageProps) {
       reviewerNames={view.reviewerNames}
       currentUserId={session.user.id}
       role={role}
+      frozen={frozen}
       evidence={evidence}
       linkCandidates={linkCandidates(item, paper.items)}
       nextItemHref={itemHref(nextSequential)}

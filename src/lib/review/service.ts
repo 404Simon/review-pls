@@ -4,6 +4,7 @@ import { z } from "zod"
 import type { AppDatabase } from "@/db"
 import { user } from "@/db/auth-schema"
 import { reviewerRole } from "@/db/review-schema"
+import { freezeAccount, unfreezeAccount } from "@/lib/review/account-status"
 import {
   adminReleaseClaim,
   ClaimConflictError,
@@ -12,6 +13,7 @@ import {
   heartbeatClaim,
   ItemClosedError,
   releaseClaim,
+  releaseUserClaims,
   type ItemKey,
 } from "@/lib/review/claims"
 import {
@@ -22,6 +24,7 @@ import {
 } from "@/lib/review/decisions"
 import { loadItems, ReviewDataError } from "@/lib/review/load"
 import { consumeRateLimit } from "@/lib/rate-limit"
+import { setRegistrationOpen } from "@/lib/registration"
 import {
   AuthorizationError,
   requireAdmin,
@@ -441,6 +444,123 @@ export async function adminSetRoleForUser(
       // both read the pre-demotion count.
       { behavior: "immediate" }
     )
+  } catch (error) {
+    return toServiceError(error)
+  }
+}
+
+export interface SetFrozenInput {
+  userId: string
+  frozen: boolean
+}
+
+export interface SetFrozenResult {
+  userId: string
+  frozen: boolean
+  /** Live claims dropped when the account was frozen. */
+  releasedClaims: number
+}
+
+/**
+ * Freeze or unfreeze a reviewer account. Freezing keeps every existing decision
+ * and draft but drops the account's claims so other reviewers can pick the work
+ * up immediately. Admins cannot be frozen: demote the account first, and
+ * promoting a frozen reviewer explicitly removes the freeze row.
+ */
+export async function adminSetFrozenForUser(
+  db: AppDatabase,
+  userRecord: RoleUser | null | undefined,
+  input: SetFrozenInput,
+  options: ServiceOptions = {}
+): Promise<ServiceResult<SetFrozenResult>> {
+  try {
+    const authorized = await requireAdmin(userRecord, { db })
+    const now = options.now ?? Date.now()
+
+    return db.transaction(
+      (tx) => {
+        // Re-read the actor's role under the write lock, exactly like role
+        // changes: a concurrent demotion must not leave a stale admin acting.
+        const actingRole = tx
+          .select({ role: reviewerRole.role })
+          .from(reviewerRole)
+          .where(eq(reviewerRole.userId, authorized.user.id))
+          .get()?.role
+        if (actingRole !== "admin") {
+          return fail(
+            "forbidden",
+            "Only admins can freeze accounts. Your admin role was revoked."
+          )
+        }
+
+        const target = tx
+          .select({ id: user.id })
+          .from(user)
+          .where(eq(user.id, input.userId))
+          .get()
+        if (!target) {
+          return fail("not_found", "This user does not exist.")
+        }
+
+        if (!input.frozen) {
+          unfreezeAccount(tx, input.userId)
+          return ok<SetFrozenResult>({
+            userId: input.userId,
+            frozen: false,
+            releasedClaims: 0,
+          })
+        }
+
+        if (input.userId === authorized.user.id) {
+          return fail("forbidden", "You cannot freeze your own account.")
+        }
+
+        const targetRole = tx
+          .select({ role: reviewerRole.role })
+          .from(reviewerRole)
+          .where(eq(reviewerRole.userId, input.userId))
+          .get()?.role
+        if (targetRole === "admin") {
+          return fail(
+            "forbidden",
+            "Admins cannot be frozen. Demote the account first."
+          )
+        }
+
+        freezeAccount(tx, input.userId, authorized.user.id, now)
+        const releasedClaims = releaseUserClaims(tx, input.userId)
+        return ok<SetFrozenResult>({
+          userId: input.userId,
+          frozen: true,
+          releasedClaims,
+        })
+      },
+      { behavior: "immediate" }
+    )
+  } catch (error) {
+    return toServiceError(error)
+  }
+}
+
+export interface SetRegistrationInput {
+  open: boolean
+}
+
+/**
+ * Open or close new account registration. Invite-code validation still runs
+ * while open; closing only gates the Better Auth sign-up endpoint, so existing
+ * sessions and sign-ins are unaffected.
+ */
+export async function adminSetRegistrationForUser(
+  db: AppDatabase,
+  userRecord: RoleUser | null | undefined,
+  input: SetRegistrationInput,
+  options: ServiceOptions = {}
+): Promise<ServiceResult<SetRegistrationInput>> {
+  try {
+    await requireAdmin(userRecord, { db })
+    setRegistrationOpen(db, input.open, options.now ?? Date.now())
+    return ok({ open: input.open })
   } catch (error) {
     return toServiceError(error)
   }

@@ -24,6 +24,7 @@ export default async function AdminLayout({
   return (
     <AppShell
       user={{ name: session.user.name, email: session.user.email }}
+      userId={session.user.id}
       activeBatchId={null}
       isAdmin
     >

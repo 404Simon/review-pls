@@ -92,6 +92,8 @@ export interface ClaimBarProps {
   currentUserId: string
   reviewerNames: Record<string, string>
   pending: boolean
+  /** Frozen accounts cannot reserve; the page is read-only. */
+  frozen: boolean
   onClaim: () => void
   onRelease: () => void
   /** Popover trigger rendered in the action group (decision or details). */
@@ -109,6 +111,7 @@ export function ClaimBar({
   currentUserId,
   reviewerNames,
   pending,
+  frozen,
   onClaim,
   onRelease,
   actionTrigger,
@@ -185,6 +188,11 @@ export function ClaimBar({
                   : `expires in ${formatLease(claim.expiresAt, now)}`}
               </span>
             </span>
+          ) : frozen ? (
+            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <UserRound data-icon="inline-start" />
+              Read only · your account is frozen
+            </span>
           ) : (
             <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
               <UserRound data-icon="inline-start" />
@@ -194,7 +202,7 @@ export function ClaimBar({
         </div>
 
         <div className="flex items-center gap-2">
-          {status !== "closed" && claim === null ? (
+          {!frozen && status !== "closed" && claim === null ? (
             <Button size="sm" onClick={onClaim} disabled={pending}>
               {pending ? (
                 <Spinner data-icon="inline-start" />

@@ -42,6 +42,9 @@ export interface ExportReviewer {
   id: string
   name: string
   email: string
+  /** Optional profile metadata; older accounts may not have filled it in. */
+  title: string | null
+  association: string | null
 }
 
 export interface ExportInput {
@@ -110,11 +113,17 @@ const datasetReviewerSchema = z.object({
   id: z.string(),
   name: z.string(),
   email: z.string().nullable(),
+  // Added after schema version 1 shipped: default so existing archival files
+  // still validate instead of failing on the missing fields.
+  title: z.string().nullable().default(null),
+  association: z.string().nullable().default(null),
 })
 
 const compactReviewerSchema = z.object({
   id: z.string(),
   name: z.string(),
+  title: z.string().nullable().default(null),
+  association: z.string().nullable().default(null),
 })
 
 const datasetFindingSchema = findingSchema
@@ -399,21 +408,39 @@ function reviewerDirectory(
 function datasetReviewer(
   directory: ReadonlyMap<string, ExportReviewer>,
   userId: string
-): { id: string; name: string; email: string | null } {
+): {
+  id: string
+  name: string
+  email: string | null
+  title: string | null
+  association: string | null
+} {
   const reviewer = directory.get(userId)
   return {
     id: userId,
     name: reviewer?.name ?? userId,
     email: reviewer?.email ?? null,
+    title: reviewer?.title ?? null,
+    association: reviewer?.association ?? null,
   }
 }
 
 function compactReviewer(
   directory: ReadonlyMap<string, ExportReviewer>,
   userId: string
-): { id: string; name: string } {
+): {
+  id: string
+  name: string
+  title: string | null
+  association: string | null
+} {
   const reviewer = directory.get(userId)
-  return { id: userId, name: reviewer?.name ?? userId }
+  return {
+    id: userId,
+    name: reviewer?.name ?? userId,
+    title: reviewer?.title ?? null,
+    association: reviewer?.association ?? null,
+  }
 }
 
 function buildStats(input: ExportInput): ExportStats {

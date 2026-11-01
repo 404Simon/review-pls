@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server"
 
+import { db } from "@/db"
 import { consumeRateLimit } from "@/lib/rate-limit"
+import {
+  isRegistrationOpen,
+  REGISTRATION_CLOSED_MESSAGE,
+} from "@/lib/registration"
 import { isValidRegistrationCode } from "@/lib/registration-code"
 
 const RATE_LIMIT = { limit: 5, windowMs: 10 * 60 * 1000 }
@@ -24,6 +29,13 @@ function readCode(body: unknown) {
 }
 
 export async function POST(request: Request) {
+  if (!isRegistrationOpen(db)) {
+    return NextResponse.json(
+      { message: REGISTRATION_CLOSED_MESSAGE },
+      { status: 403 }
+    )
+  }
+
   const body: unknown = await request.json().catch(() => null)
 
   if (isValidRegistrationCode(readCode(body))) {
