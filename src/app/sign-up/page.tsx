@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
@@ -5,8 +6,20 @@ import { AuthCard } from "@/components/auth-card"
 import { db } from "@/db"
 import { isRegistrationOpen } from "@/lib/registration"
 import { getSession } from "@/lib/session"
+import {
+  pageMetadata,
+  SITE_DESCRIPTION,
+  SITE_INVITE,
+} from "@/lib/site-metadata"
 
 import { SignUpForm } from "./sign-up-form"
+
+export const metadata: Metadata = pageMetadata({
+  title: "Create an account",
+  previewTitle: SITE_INVITE,
+  description: SITE_DESCRIPTION,
+  path: "/sign-up",
+})
 
 export default async function SignUpPage() {
   const session = await getSession()

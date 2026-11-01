@@ -9,9 +9,9 @@ import {
   Tags,
   type LucideIcon,
 } from "lucide-react"
+import type { Metadata } from "next"
 
 import { SeverityBadge } from "@/components/review/severity-badge"
-import { StatusBadge } from "@/components/review/status-badge"
 import { TourStartButton } from "@/components/review/tour-start-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -29,7 +29,14 @@ import {
   TOURS,
   type TourId,
 } from "@/lib/review/tour-routes"
+import { pageMetadata } from "@/lib/site-metadata"
 
+export const metadata: Metadata = pageMetadata({
+  title: "Review guide",
+  description:
+    "How to claim an item, read the evidence, and record a review decision.",
+  path: "/guide",
+})
 const TOUR_ICONS: Record<TourId, LucideIcon> = {
   guide: Compass,
   dashboard: LayoutDashboard,
@@ -257,9 +264,7 @@ export default async function GuidePage() {
         className="flex flex-col gap-4"
       >
         <div className="flex flex-col gap-1">
-          <h2 className="font-heading text-lg font-medium">
-            Tours
-          </h2>
+          <h2 className="font-heading text-lg font-medium">Tours</h2>
           <p className="text-sm text-muted-foreground">
             Four short tours, one per page. Might be helpful to get started.
           </p>
@@ -338,7 +343,8 @@ export default async function GuidePage() {
             Protocol, precisely
           </h2>
           <p className="text-sm text-muted-foreground">
-            The vocabulary used by the decision form, the history and the exports.
+            The vocabulary used by the decision form, the history and the
+            exports.
           </p>
         </div>
         <Card>

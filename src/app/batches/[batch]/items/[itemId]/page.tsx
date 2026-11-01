@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
 import { DataErrorState } from "@/components/review/data-error"
@@ -34,10 +35,49 @@ import { getUserRole } from "@/lib/review/roles"
 import type { ReviewItem } from "@/lib/review/types"
 import { isMissingReviewData, ReviewDataError } from "@/lib/review/load"
 import { getSession } from "@/lib/session"
+import { pageMetadata } from "@/lib/site-metadata"
 
 interface PageProps {
   params: Promise<{ batch: string; itemId: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export async function generateMetadata({
+  params,
+}: Pick<PageProps, "params">): Promise<Metadata> {
+  const { batch: batchId, itemId: itemParam } = await params
+  const path = itemPath(batchId, itemParam)
+  const session = await getSession()
+
+  if (!session) {
+    return pageMetadata({ title: "Review item", path })
+  }
+
+  try {
+    const parsed = parseItemIdParam(itemParam)
+    const view = await loadBatchReviewView(batchId, session.user.id)
+    const item = view.loaded.items.find(
+      (candidate) =>
+        candidate.kind === parsed.kind &&
+        candidate.paperId === parsed.paperId &&
+        candidate.ref === parsed.ref
+    )
+    if (!item) {
+      return pageMetadata({ title: "Review item", path })
+    }
+    const paper = view.loaded.papers.find(
+      (candidate) => candidate.manifest.id === item.paperId
+    )
+    return pageMetadata({
+      title: item.title,
+      description: `${item.severity} severity finding${
+        paper ? ` in ${paper.manifest.title}` : ""
+      }. Check the evidence and record a decision.`,
+      path,
+    })
+  } catch {
+    return pageMetadata({ title: "Review item", path })
+  }
 }
 
 function linkCandidates(

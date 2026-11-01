@@ -1,4 +1,5 @@
 import { AlertTriangle, ArrowLeft } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
@@ -13,12 +14,14 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   normalizeParams,
+  paperPath,
   parseItemTab,
   parseReviewFilters,
 } from "@/lib/review/filters"
 import { evidenceFileUrl } from "@/lib/review/evidence"
 import {
   isMissingReviewData,
+  loadBatch,
   loadPaper,
   ReviewDataError,
 } from "@/lib/review/load"
@@ -28,10 +31,38 @@ import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 import { loadBatchReviewView } from "@/lib/review/ui-data"
 import { db } from "@/db"
 import { getSession } from "@/lib/session"
+import { pageMetadata } from "@/lib/site-metadata"
 
 interface PageProps {
   params: Promise<{ batch: string; paperId: string }>
   searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export async function generateMetadata({
+  params,
+}: Pick<PageProps, "params">): Promise<Metadata> {
+  const { batch: batchId, paperId } = await params
+  const path = paperPath(batchId, paperId)
+  const session = await getSession()
+
+  if (!session) {
+    return pageMetadata({ title: "Paper", path })
+  }
+
+  try {
+    const batch = await loadBatch(batchId)
+    const paper = batch.papers.find((candidate) => candidate.id === paperId)
+    if (!paper) {
+      return pageMetadata({ title: "Paper", path })
+    }
+    return pageMetadata({
+      title: paper.title,
+      description: `Automated findings, evidence, and review decisions for ${paper.title}.`,
+      path,
+    })
+  } catch {
+    return pageMetadata({ title: "Paper", path })
+  }
 }
 
 export default async function PaperPage({ params, searchParams }: PageProps) {

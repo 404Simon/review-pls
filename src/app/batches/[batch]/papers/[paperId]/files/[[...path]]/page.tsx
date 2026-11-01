@@ -5,6 +5,7 @@ import {
   File as FileIcon,
   Folder,
 } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
@@ -29,9 +30,35 @@ import { joinWithin } from "@/lib/review/paths"
 import { getUserRole } from "@/lib/review/roles"
 import { db } from "@/db"
 import { getSession } from "@/lib/session"
+import { pageMetadata } from "@/lib/site-metadata"
 
 interface PageProps {
   params: Promise<{ batch: string; paperId: string; path?: string[] }>
+}
+
+export async function generateMetadata({
+  params,
+}: Pick<PageProps, "params">): Promise<Metadata> {
+  const { batch: batchId, paperId } = await params
+  const session = await getSession()
+
+  if (!session) {
+    return pageMetadata({ title: "Paper files" })
+  }
+
+  try {
+    const batch = await loadBatch(batchId)
+    const paper = batch.papers.find((candidate) => candidate.id === paperId)
+    if (!paper) {
+      return pageMetadata({ title: "Paper files" })
+    }
+    return pageMetadata({
+      title: `${paper.title} files`,
+      description: `Repository files and attachments for ${paper.title}.`,
+    })
+  } catch {
+    return pageMetadata({ title: "Paper files" })
+  }
 }
 
 function encodePath(relative: string): string {

@@ -9,6 +9,7 @@ import {
   UserPlus,
   Users,
 } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
@@ -85,6 +86,14 @@ import type {
 } from "@/lib/review/types"
 import { summarizeUserActivity } from "@/lib/review/user-activity"
 import { getSession } from "@/lib/session"
+import { pageMetadata } from "@/lib/site-metadata"
+
+export const metadata: Metadata = pageMetadata({
+  title: "Admin",
+  description:
+    "Roles, active claims, the unsure queue, data health, and review exports.",
+  path: "/admin",
+})
 
 interface PaperAdminStats {
   paperId: string

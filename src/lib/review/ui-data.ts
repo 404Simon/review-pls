@@ -1,3 +1,5 @@
+import { cache } from "react"
+
 import { db } from "@/db"
 import { getBatchClaims } from "@/lib/review/claims"
 import {
@@ -31,8 +33,10 @@ function toStateRecord(
 /**
  * Load a batch, its items, review state and reviewer display names in one
  * server-only call. Client components only receive plain objects.
+ *
+ * Cached per request so `generateMetadata` and the page share one load.
  */
-export async function loadBatchReviewView(
+export const loadBatchReviewView = cache(async function loadBatchReviewView(
   batchId: string,
   userId: string
 ): Promise<BatchReviewView> {
@@ -63,4 +67,4 @@ export async function loadBatchReviewView(
     ),
     now,
   }
-}
+})

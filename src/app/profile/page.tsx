@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import type { Metadata } from "next"
 
 import {
   PasswordForm,
@@ -13,6 +14,14 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { getSession } from "@/lib/session"
+import { pageMetadata } from "@/lib/site-metadata"
+
+export const metadata: Metadata = pageMetadata({
+  title: "Your profile",
+  description:
+    "Update your name, affiliation, and password for the review workspace.",
+  path: "/profile",
+})
 
 export default async function ProfilePage() {
   const session = await getSession()

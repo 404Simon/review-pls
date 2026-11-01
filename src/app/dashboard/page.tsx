@@ -1,4 +1,5 @@
 import { BookOpen, ClipboardList, Database, PlayCircle } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound, redirect } from "next/navigation"
 
@@ -40,6 +41,14 @@ import { TOUR_ANCHORS } from "@/lib/review/tour-routes"
 import { loadBatchReviewView } from "@/lib/review/ui-data"
 import type { ReviewItem, Severity } from "@/lib/review/types"
 import { getSession } from "@/lib/session"
+import { pageMetadata } from "@/lib/site-metadata"
+
+export const metadata: Metadata = pageMetadata({
+  title: "Dashboard",
+  description:
+    "Browse papers, filter findings, and pick up where your review left off.",
+  path: "/dashboard",
+})
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
