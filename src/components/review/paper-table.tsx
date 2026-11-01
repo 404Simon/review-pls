@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils"
 export interface PaperTableRow {
   id: string
   title: string
-  category: string
   comparisonEligible: boolean
   counts: {
     total: number
@@ -118,7 +117,6 @@ export function PaperTable({
                     {paper.title}
                   </Link>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>{paper.category}</span>
                     {(["high", "medium", "low"] as const).map((severity) => {
                       const count = paper.counts.bySeverity[severity]
                       return (

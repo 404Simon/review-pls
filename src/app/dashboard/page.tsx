@@ -199,7 +199,6 @@ async function DashboardBatch({
     return {
       id: paper.manifest.id,
       title: paper.manifest.title,
-      category: paper.manifest.category,
       comparisonEligible: paper.manifest.comparisonEligible,
       counts: {
         total: paper.counts.total,

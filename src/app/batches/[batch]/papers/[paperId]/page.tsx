@@ -139,8 +139,6 @@ export default async function PaperPage({ params, searchParams }: PageProps) {
       <header className="flex flex-col gap-4">
         <div className="flex min-w-0 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>{paper.manifest.category}</span>
-            <span aria-hidden>·</span>
             <span>AuditOwl {paper.manifest.auditowlStatus}</span>
             <span aria-hidden>·</span>
             <span>
