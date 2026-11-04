@@ -506,6 +506,62 @@ test("an admin opens a user details dialog from the roles table", async ({
   }
 })
 
+test("an admin opens another reviewer's decision log", async ({ browser }) => {
+  const reviewer = await newSignedInContext(browser, "admin-user-decisions")
+  const admin = await newSignedInContext(browser, "admin-user-decisions-admin")
+  promoteToAdmin(admin.email)
+  const url = "/batches/review-fixture-b/items/agent_only:1002:a2"
+  const note = "This decision is visible in the admin decision log."
+
+  try {
+    await reviewer.page.goto(url)
+    await reviewer.page.getByRole("button", { name: "Reserve" }).click()
+    await expect(reviewer.page.getByText("Reserved by you")).toBeVisible()
+    await openDecisionForm(reviewer.page)
+    await reviewer.page.getByLabel("Reviewer note").fill(note)
+    await reviewer.page.getByRole("button", { name: "Save & close" }).click()
+    await expect(reviewer.page.getByText(/Decision saved/)).toBeVisible()
+
+    await admin.page.goto("/admin")
+    const row = admin.page
+      .getByRole("row")
+      .filter({ hasText: reviewer.email })
+      .first()
+    await row
+      .getByRole("button", { name: `Details for ${reviewer.email}` })
+      .click()
+
+    const dialog = admin.page.getByRole("dialog")
+    await dialog.getByRole("link", { name: "All decisions" }).click()
+    await expect(admin.page).toHaveURL(/\/admin\/users\//)
+
+    await admin.page.getByLabel("Select batch").click()
+    await admin.page
+      .getByRole("option", { name: "Synthetic evidence fixture B" })
+      .click()
+    await expect(admin.page).toHaveURL(
+      /\/admin\/users\/[^?]+\?batch=review-fixture-b/
+    )
+
+    await expect(
+      admin.page.getByRole("heading", { name: "Admin UI User" })
+    ).toBeVisible()
+    await expect(admin.page.getByText(reviewer.email).first()).toBeVisible()
+    await expect(
+      admin.page.getByRole("link", {
+        name: "Missing ablation for the central component",
+      })
+    ).toBeVisible()
+    await expect(admin.page.getByText(note)).toBeVisible()
+    await expect(
+      admin.page.getByText("Closed", { exact: true }).first()
+    ).toBeVisible()
+  } finally {
+    await reviewer.context.close()
+    await admin.context.close()
+  }
+})
+
 test("an admin freezes a reviewer into read-only mode", async ({ browser }) => {
   const reviewer = await newSignedInContext(browser, "freeze-reviewer")
   const admin = await newSignedInContext(browser, "freeze-admin")

@@ -711,6 +711,54 @@ export async function getBatchDecisionEvents(
     .map(toDecisionEventRecord)
 }
 
+/** Every current decision row for one reviewer, newest first. */
+export async function getUserDecisionRows(
+  db: AppDatabase,
+  userId: string,
+  batchId?: string
+): Promise<DecisionRecord[]> {
+  const where =
+    batchId === undefined
+      ? eq(reviewDecision.userId, userId)
+      : and(
+          eq(reviewDecision.userId, userId),
+          eq(reviewDecision.batchId, batchId)
+        )
+  return db
+    .select()
+    .from(reviewDecision)
+    .where(where)
+    .orderBy(
+      desc(reviewDecision.updatedAt),
+      desc(reviewDecision.createdAt),
+      desc(reviewDecision.id)
+    )
+    .all()
+    .map(toDecisionRecord)
+}
+
+/** Append-only event history for one reviewer, newest first. */
+export async function getUserDecisionEvents(
+  db: AppDatabase,
+  userId: string,
+  batchId?: string
+): Promise<DecisionEventRecord[]> {
+  const where =
+    batchId === undefined
+      ? eq(reviewDecisionEvent.userId, userId)
+      : and(
+          eq(reviewDecisionEvent.userId, userId),
+          eq(reviewDecisionEvent.batchId, batchId)
+        )
+  return db
+    .select()
+    .from(reviewDecisionEvent)
+    .where(where)
+    .orderBy(desc(reviewDecisionEvent.createdAt), desc(reviewDecisionEvent.id))
+    .all()
+    .map(toDecisionEventRecord)
+}
+
 export async function getPaperDecisionRows(
   db: AppDatabase,
   batchId: string,

@@ -52,11 +52,11 @@ const TIMESTAMP_FORMAT = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
   hour: "2-digit",
   minute: "2-digit",
-  timeZone: "UTC",
+  timeZone: "Europe/Berlin",
   timeZoneName: "short",
 })
 
-/** UTC keeps server and client renders identical. */
+/** A fixed time zone keeps server and client renders identical. */
 export function formatTimestamp(milliseconds: number): string {
   return TIMESTAMP_FORMAT.format(new Date(milliseconds))
 }

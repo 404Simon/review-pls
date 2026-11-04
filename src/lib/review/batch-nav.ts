@@ -23,6 +23,11 @@ export function batchNavItems(
       label: "Papers",
       activePrefixes: ["/dashboard"],
     },
+    {
+      href: "/decisions",
+      label: "My decisions",
+      activePrefixes: ["/decisions"],
+    },
     { href: "/guide", label: "Guide", activePrefixes: ["/guide"] },
   ]
 
@@ -40,8 +45,16 @@ export function batchNavItems(
 /**
  * Where the batch selector sends the reviewer. Item and paper URLs are
  * batch-specific, so switching batches always returns to the dashboard for the
- * new batch.
+ * new batch. Batch-scoped pages such as the decision log keep their own route.
  */
 export function batchSwitchHref(batchId: string): string {
   return `/dashboard?batch=${encodeURIComponent(batchId)}`
+}
+
+/** Routes that keep their path when the header batch changes. */
+export function isBatchScopedPath(pathname: string): boolean {
+  return (
+    /^\/decisions\/?$/.test(pathname) ||
+    /^\/admin\/users\/[^/]+\/?$/.test(pathname)
+  )
 }

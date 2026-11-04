@@ -118,6 +118,7 @@ export const reviewDecision = sqliteTable(
       table.itemRef
     ),
     index("review_decision_batch_status_idx").on(table.batchId, table.status),
+    index("review_decision_user_updated_idx").on(table.userId, table.updatedAt),
   ]
 )
 

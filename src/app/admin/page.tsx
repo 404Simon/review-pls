@@ -833,7 +833,12 @@ export default async function AdminPage() {
                       {batch.summary.batchId}
                     </TableCell>
                     <TableCell>
-                      {userNames.get(reviewer.userId) ?? reviewer.userId}
+                      <Link
+                        href={`/admin/users/${encodeURIComponent(reviewer.userId)}`}
+                        className="hover:underline"
+                      >
+                        {userNames.get(reviewer.userId) ?? reviewer.userId}
+                      </Link>
                     </TableCell>
                     <TableCell>{reviewer.closed}</TableCell>
                     <TableCell>{reviewer.unsure}</TableCell>
@@ -904,7 +909,12 @@ export default async function AdminPage() {
                 return (
                   <TableRow key={user.id}>
                     <TableCell>
-                      <span className="font-medium">{user.name}</span>
+                      <Link
+                        href={`/admin/users/${encodeURIComponent(user.id)}`}
+                        className="font-medium hover:underline"
+                      >
+                        {user.name}
+                      </Link>
                       <span className="ml-2 font-mono text-xs text-muted-foreground">
                         {user.id}
                       </span>

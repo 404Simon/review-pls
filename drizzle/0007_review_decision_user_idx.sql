@@ -1,0 +1,1 @@
+CREATE INDEX `review_decision_user_updated_idx` ON `review_decision` (`user_id`,`updated_at`);

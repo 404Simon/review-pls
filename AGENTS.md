@@ -99,7 +99,8 @@ pnpm db:studio           # Drizzle Studio
 The repo has the auth migration, the review-core migration, the claim-expiry
 migration, the decision-event migration, the event backfill
 (`0004_backfill_decision_events`), the account-freeze migration
-(`0005_reviewer_freeze`) and the settings migration (`0006_app_setting`).
+(`0005_reviewer_freeze`), the settings migration (`0006_app_setting`) and the
+per-reviewer decision index migration (`0007_review_decision_user_idx`).
 Do not squash or rewrite an applied migration
 once it has been deployed or the database contains real data; add a new
 migration instead. The backfill inserts an event for every pre-0003
@@ -140,6 +141,14 @@ absolute paths, hashes and loader details in an admin-only block.
   shell only for admins. It owns data health, roles, active claims, the unsure
   queue, statistics, account freezing, the registration switch, exports and the
   review-data cache reload action.
+- `/decisions` is the reviewer's own decision log and `/admin/users/[userId]`
+  is the same log for any registered user, reachable from `/admin`. Both are
+  scoped to the header's selected `?batch=` and built by
+  `src/lib/review/user-decisions.ts` from the append-only events plus the
+  reviewer's current drafts, so an unsure note stays visible after a later
+  draft. `src/lib/review/user-decisions-data.ts` is the only loader that reads
+  the database and mount for these pages. The header batch selector keeps these
+  routes instead of returning to the dashboard.
 - `src/lib/review/export.ts` holds the pure, zod-validated dataset and
   decisions-only builders. `src/lib/review/export-data.ts` is the only
   export module that touches the mount and database, and its

@@ -1,6 +1,6 @@
 "use client"
 
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import {
   Select,
@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { batchSwitchHref } from "@/lib/review/batch-nav"
+import { batchSwitchHref, isBatchScopedPath } from "@/lib/review/batch-nav"
 
 export interface BatchOption {
   batchId: string
@@ -27,6 +27,7 @@ export function BatchSelect({
   defaultBatchId: string | null
 }) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const fromQuery = searchParams.get("batch")
   // An unknown ?batch= must not silently present another mounted batch as the
@@ -38,6 +39,15 @@ export function BatchSelect({
         ? fromQuery
         : null
       : (defaultBatchId ?? batches[0]?.batchId ?? null))
+
+  function hrefForBatch(batchId: string): string {
+    if (!isBatchScopedPath(pathname)) {
+      return batchSwitchHref(batchId)
+    }
+    const next = new URLSearchParams(searchParams.toString())
+    next.set("batch", batchId)
+    return `${pathname}?${next.toString()}`
+  }
 
   if (batches.length === 0) {
     return null
@@ -54,7 +64,7 @@ export function BatchSelect({
         if (typeof value !== "string" || value === "") {
           return
         }
-        router.push(batchSwitchHref(value))
+        router.push(hrefForBatch(value))
       }}
     >
       <SelectTrigger

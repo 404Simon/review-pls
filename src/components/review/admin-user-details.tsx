@@ -1,10 +1,11 @@
 "use client"
 
-import { Activity, Eye, Mail } from "lucide-react"
+import { Activity, Eye, ListChecks, Mail } from "lucide-react"
+import Link from "next/link"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -194,6 +195,16 @@ export function AdminUserDetails({
             </Table>
           )}
         </section>
+
+        <div className="flex justify-end">
+          <Link
+            href={`/admin/users/${encodeURIComponent(user.id)}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            <ListChecks data-icon="inline-start" />
+            All decisions
+          </Link>
+        </div>
       </DialogContent>
     </Dialog>
   )

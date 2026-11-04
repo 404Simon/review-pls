@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { batchNavItems, batchSwitchHref } from "@/lib/review/batch-nav"
+import {
+  batchNavItems,
+  batchSwitchHref,
+  isBatchScopedPath,
+} from "@/lib/review/batch-nav"
 
 describe("batchSwitchHref", () => {
   it("sends every batch switch to the dashboard for that batch", () => {
@@ -15,10 +19,31 @@ describe("batchSwitchHref", () => {
   })
 })
 
+describe("isBatchScopedPath", () => {
+  it("keeps the decision log routes on the same page", () => {
+    expect(isBatchScopedPath("/decisions")).toBe(true)
+    expect(isBatchScopedPath("/decisions/")).toBe(true)
+    expect(isBatchScopedPath("/admin/users/user-1")).toBe(true)
+    expect(isBatchScopedPath("/admin/users/user-1/")).toBe(true)
+  })
+
+  it("sends every other route back to the dashboard", () => {
+    expect(isBatchScopedPath("/dashboard")).toBe(false)
+    expect(isBatchScopedPath("/admin")).toBe(false)
+    expect(isBatchScopedPath("/admin/users")).toBe(false)
+    expect(isBatchScopedPath("/profile")).toBe(false)
+  })
+})
+
 describe("batchNavItems", () => {
   it("links the dashboard, guide and optionally admin", () => {
     expect(batchNavItems(null)).toEqual([
       { href: "/dashboard", label: "Papers", activePrefixes: ["/dashboard"] },
+      {
+        href: "/decisions",
+        label: "My decisions",
+        activePrefixes: ["/decisions"],
+      },
       { href: "/guide", label: "Guide", activePrefixes: ["/guide"] },
     ])
     expect(batchNavItems("second", { isAdmin: true })).toContainEqual({

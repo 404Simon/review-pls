@@ -245,3 +245,46 @@ test("a second reviewer gets a clear claim conflict", async ({ browser }) => {
   }
 })
 
+test("a reviewer sees the decision log for the selected batch", async ({
+  page,
+  request,
+}) => {
+  await signedInPage(page, request, "decisions")
+  await page.goto("/decisions")
+  await expect(
+    page.getByRole("heading", { name: "Your decisions" })
+  ).toBeVisible()
+  await expect(page.getByText("No decisions yet")).toBeVisible()
+
+  await page.getByLabel("Select batch").click()
+  await page
+    .getByRole("option", { name: "Synthetic evidence fixture B" })
+    .click()
+  await expect(page).toHaveURL(/\/decisions\?batch=review-fixture-b/)
+
+  const url = "/batches/review-fixture-b/items/agent_only:1001:a5"
+  await page.goto(url)
+  await page.getByRole("button", { name: "Reserve" }).click()
+  await expect(page.getByText("Reserved by you")).toBeVisible()
+  await openDecisionForm(page)
+  const note = "Decision log note for the second guard fixture."
+  await page.getByLabel("Reviewer note").fill(note)
+  await page.getByRole("button", { name: "Save & close" }).click()
+  await expect(page.getByText(/Decision saved/)).toBeVisible()
+
+  await page.goto("/decisions?batch=review-fixture-b")
+  const itemLink = page.getByRole("link", {
+    name: "Second guard fixture finding for admin dialog tests",
+  })
+  await expect(itemLink).toBeVisible()
+  await expect(itemLink).toHaveAttribute(
+    "href",
+    "/batches/review-fixture-b/items/agent_only:1001:a5"
+  )
+  await expect(page.getByText(note)).toBeVisible()
+  await expect(page.getByText("Closed", { exact: true }).first()).toBeVisible()
+
+  await page.getByLabel("Decision status").click()
+  await page.getByRole("option", { name: "Drafts" }).click()
+  await expect(page.getByText("No decisions match these filters")).toBeVisible()
+})
